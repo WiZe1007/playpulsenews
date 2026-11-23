@@ -17,6 +17,7 @@ const gamblingCategory = 'Гемблінг';
 const dayFmt = new Intl.DateTimeFormat('uk-UA',{day:'numeric',month:'long',year:'numeric',timeZone:'UTC'});
 const monthFmt = new Intl.DateTimeFormat('uk-UA',{month:'long',year:'numeric',timeZone:'UTC'});
 const editor = $('editor-form');
+const privateGateway = () => platform==='render'||platform==='cloudflare';
 let platform = null, account = null, articles = [], listLimit = 20, editing = null, draftId = '', dirty = false, saving = false, listRequest = 0;
 
 async function loadRuntime() {
@@ -29,8 +30,8 @@ async function loadRuntime() {
  }
  if(response.status===404) {platform='sites';return;}
  const data = await response.json().catch(() => null);
- if(!response.ok || data?.platform!=='render') throw new Error('Unexpected runtime');
- platform='render';
+ if(!response.ok || !['render','cloudflare'].includes(data?.platform)) throw new Error('Unexpected runtime');
+ platform=data.platform;
 }
 
 async function api(path, payload) {
@@ -54,7 +55,7 @@ function notify(id, words='', kind='') {
  target.hidden = !words;
 }
 function accessError(e) {
- if (e.status===401||e.status===403) return platform==='render'?'Доступ має тільки власник сайту. Увійди зі своїм логіном і паролем Play Pulse.':'Відкрий Play Pulse через свій обліковий запис ChatGPT. Кабінет доступний тільки власнику сайту.';
+ if (e.status===401||e.status===403) return privateGateway()?'Доступ має тільки власник сайту. Увійди зі своїм логіном і паролем Play Pulse.':'Відкрий Play Pulse через свій обліковий запис ChatGPT. Кабінет доступний тільки власнику сайту.';
  if (e.status===429) {
   const seconds = Number(e.retry);
   return Number.isFinite(seconds)&&seconds>0?'Забагато спроб. Зачекай приблизно '+Math.max(1,Math.ceil(seconds/60))+' хв. і спробуй ще раз.':'Забагато спроб. Зачекай трохи й спробуй ще раз.';
@@ -85,9 +86,9 @@ function applyAccount(data, focus=false) {
  }
  regions('signed-out');
  const setup = data.configured === false;
- const ownerSetup = setup && platform==='render';
- $('auth-title').textContent = ownerSetup?'Потрібне налаштування власника':setup?'Створи кабінет':platform==='render'?'Вхід у Play Pulse':'Вхід у кабінет';
- $('auth-intro').textContent = platform==='render'?(ownerSetup?'Кабінет ще не налаштовано. Власник має завершити початкове налаштування доступу.':'Сайт приватний. Введи логін і пароль власника, щоб відкрити стрічку та кабінет.'):(setup?'Створи окремий логін і пароль для Play Pulse. Доступ до самого сайту й далі перевіряє ChatGPT.':'Введи окремий логін і пароль Play Pulse. Доступ до самого сайту й далі перевіряє ChatGPT.');
+ const ownerSetup = setup && privateGateway();
+ $('auth-title').textContent = ownerSetup?'Потрібне налаштування власника':setup?'Створи кабінет':privateGateway()?'Вхід у Play Pulse':'Вхід у кабінет';
+ $('auth-intro').textContent = privateGateway()?(ownerSetup?'Кабінет ще не налаштовано. Власник має завершити початкове налаштування доступу.':'Сайт приватний. Введи логін і пароль власника, щоб відкрити стрічку та кабінет.'):(setup?'Створи окремий логін і пароль для Play Pulse. Доступ до самого сайту й далі перевіряє ChatGPT.':'Введи окремий логін і пароль Play Pulse. Доступ до самого сайту й далі перевіряє ChatGPT.');
  $('setup-form').hidden = !setup || ownerSetup;
  $('login-form').hidden = setup;
  if (focus) {
@@ -134,7 +135,7 @@ async function authSubmit(event, setup) {
   form.reset();
   notify('auth-message');
   if (data.authenticated && data.role==='admin') {
-   if(platform==='render' && new URLSearchParams(window.location.search).get('next')==='/') {
+   if(privateGateway() && new URLSearchParams(window.location.search).get('next')==='/') {
     window.location.assign('/');
     return;
    }

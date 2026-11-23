@@ -355,7 +355,7 @@ function serveAsset(request,asset) {
   const buf=Uint8Array.from(atob(encodedPart),c=>c.charCodeAt(0));
   return new Response(buf.subarray(from-lead,to-lead+1),{status,headers});
 }
-function makeApp(assets,seed) {
+export function makeApp(assets,seed) {
   return {async fetch(request,env={}) {
     const url=new URL(request.url), path=url.pathname;
     if (path==="/api/news") {

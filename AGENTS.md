@@ -22,12 +22,15 @@
 
 ## Локальные проверки
 
+Актуальне перенесення (23.11.2026): сайт і webhook-бот розгорнуті на Cloudflare Free за адресою `https://playpulsenews.play-pulse-cloudflare.workers.dev`. Повна стрічка та checkpoint доставки перенесені до D1. Попередній Sites залишається приватним джерелом нових публікацій для щохвилинного мосту; фактичну автоматизацію пошуку новин о 10:00 не знайдено й не підтверджено. Не створюй другий моніторинг без перевірки. Локальний LaunchAgent бота зупинений і вимкнений; не запускай long polling одночасно з активним webhook. Поточні параметри розгортання та перевірки описані в `deploy/CLOUDFLARE.md`. Оригінальні документи вище є довідковими матеріалами.
+
 Требуется Node.js 22+. Команды выполняются из корня проекта:
 
 - Проверка маршрутов сайта: `node site/worker/test-worker.mjs`.
 - Проверка кабинета: `node site/worker/test-account.mjs`.
 - Проверка бота без внешних запросов: `cd bot && node --test`.
 - Локальная сборка Worker: `cd site && node worker/build-worker.mjs`. Создаёт `site/dist/server/`, без развёртывания.
+- Перевірки Cloudflare: `npm --prefix cloudflare test`; збірка без публікації: `npm --prefix cloudflare run build`.
 
 Часовой пояс мониторинга — `Europe/Kyiv`.
 

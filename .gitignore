@@ -7,3 +7,6 @@ site/dist/server/
 bot/.runtime/
 site/.runtime/
 deploy/.private/
+cloudflare/.wrangler/
+cloudflare/.build/
+cloudflare/.dev.vars*

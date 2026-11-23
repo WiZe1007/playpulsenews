@@ -33,7 +33,7 @@ class Element {
 }
 
 async function page({ platform = 'render', configured = false, runtimeError = false,
- runtimeStatus = platform === 'render' ? 200 : 404, accountStatus = 200, search = '' } = {}) {
+ runtimeStatus = ['render','cloudflare'].includes(platform) ? 200 : 404, accountStatus = 200, search = '' } = {}) {
  const nodes = new Map();
  const node = id => {
   if (!nodes.has(id)) nodes.set(id, new Element());
@@ -130,4 +130,19 @@ test('successful login keeps cabinet for absent or untrusted return paths', asyn
  await sites.login();
  assert.deepEqual(sites.redirects, []);
  assert.equal(sites.node('admin').hidden, false);
+});
+
+test('Cloudflare uses private owner login, blocks signup, and safely returns to the feed', async () => {
+ const setup = await page({ platform: 'cloudflare' });
+ assert.equal(setup.node('signed-out').hidden, false);
+ assert.equal(setup.node('setup-form').hidden, true);
+ assert.equal(setup.node('login-form').hidden, true);
+ assert.doesNotMatch(setup.node('auth-intro').textContent, /ChatGPT/);
+ const ui = await page({ platform: 'cloudflare', configured: true, search: '?next=%2F' });
+ assert.equal(ui.node('login-form').hidden, false);
+ assert.doesNotMatch(ui.node('auth-intro').textContent, /ChatGPT/);
+ await ui.login();
+ assert.deepEqual(ui.redirects, ['/']);
+ const denied = await page({ platform: 'cloudflare', accountStatus: 401 });
+ assert.doesNotMatch(denied.node('loading-text').textContent, /ChatGPT/);
 });

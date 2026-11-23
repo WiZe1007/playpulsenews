@@ -1,0 +1,39 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "playpulsenews",
+  "main": "index.mjs",
+  "compatibility_date": "2026-11-23",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "workers_dev": true,
+  "preview_urls": false,
+  "durable_objects": {
+    "bindings": [{"name": "AUTH", "class_name": "PlayPulseAuth"}, {"name": "BOT", "class_name": "PlayPulseBot"}]
+  },
+  "migrations": [{"tag": "auth-v1", "new_sqlite_classes": ["PlayPulseAuth"]}, {"tag": "bot-v1", "new_sqlite_classes": ["PlayPulseBot"]}],
+  "assets": {
+    "directory": "../site/dist",
+    "binding": "ASSETS",
+    "run_worker_first": true,
+    "html_handling": "none",
+    "not_found_handling": "none"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "playpulsenews",
+      "database_id": "d1f0d79b-d6b0-4c66-8867-f2807a5b8326"
+    }
+  ],
+  "triggers": {
+    "crons": [
+      "* * * * *"
+    ]
+  },
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  "account_id": "91a3ebe9454f1d8ca0ddbedd7bd98a31"
+}

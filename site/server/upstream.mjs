@@ -42,12 +42,15 @@ function batches(records){
  return result;
 }
 
-export async function syncUpstreamOnce({handler,config,token,fetchFn=fetch,signal}){
+export async function syncUpstreamOnce({handler,config,token,fetchFn=fetch,signal,maxBatches=Infinity}){
  try{
+  if(maxBatches!==Infinity&&(!Number.isSafeInteger(maxBatches)||maxBatches<1))throw failure();
   if(typeof token!=='string'||!token||token.length>8192||/\s/.test(token))throw failure();
   const attempt=AbortSignal.any([...(signal?[signal]:[]),AbortSignal.timeout(20000)]);
   attempt.throwIfAborted();
-  const response=await fetchFn(SOURCE,{redirect:'error',cache:'no-store',headers:{Accept:'application/json','OAI-Sites-Authorization':'Bearer '+token},signal:attempt});
+  // Workers accepts manual/follow redirect modes. Never follow a redirect with
+  // the Sites credential; readFeed below rejects every non-2xx response.
+  const response=await fetchFn(SOURCE,{redirect:'manual',cache:'no-store',headers:{Accept:'application/json','OAI-Sites-Authorization':'Bearer '+token},signal:attempt});
   if(response.redirected||response.url&&response.url!==SOURCE)throw failure();
   const source=await readFeed(response,attempt);
   if(!source.length)return {added:0,skipped:0};
@@ -59,7 +62,7 @@ export async function syncUpstreamOnce({handler,config,token,fetchFn=fetch,signa
   };
   const existing=await currentIDs(),pending=[...unique.values()].filter(record=>!existing.has(record.id));
   const chunks=batches(pending);let added=0;
-  for(const chunk of chunks){
+  for(const chunk of chunks.slice(0,maxBatches)){
    const latest=await currentIDs(),entries=chunk.filter(record=>!latest.has(record.id));
    if(!entries.length)continue;
    attempt.throwIfAborted();

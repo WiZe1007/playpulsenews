@@ -26,7 +26,7 @@ test('the bridge confines Sites credentials to the fixed source and imports only
  const internal=[],sourceCalls=[];
  const handler=async request=>{internal.push(request.clone());return f.handler(request);};
  const fetchFn=async(url,options)=>{
-  sourceCalls.push(url);assert.equal(url,upstreamURL);assert.equal(options.redirect,'error');
+  sourceCalls.push(url);assert.equal(url,upstreamURL);assert.equal(options.redirect,'manual');
   const headers=new Headers(options.headers);assert.equal(headers.get('oai-sites-authorization'),'Bearer '+token);assert.equal(headers.get('authorization'),null);
   assert.equal(headers.get('accept'),'application/json');assert.ok(options.signal instanceof AbortSignal);
   return Response.json([row('existing'),row('new'),row('new','Дублікат')]);
@@ -85,6 +85,16 @@ test('oversized individual records fail safely before any writer request',async 
  const handler=async request=>{if(request.method==='POST')writes++;return f.handler(request);};
  await assert.rejects(bridge.syncUpstreamOnce({handler,config:cfg,token,fetchFn:async()=>Response.json([row('valid'),{...row('oversized'),detail:'x'.repeat(128*1024)}])}),safeFailure);
  assert.equal(writes,0);assert.deepEqual((await f.read()).map(item=>item.id),['existing']);
+});
+
+test('a scheduled invocation can bound writes and catch up on later invocations',async t=>{
+ const f=await fixture(t),records=Array.from({length:25},(_,index)=>row('bounded-'+index));
+ const sync=()=>bridge.syncUpstreamOnce({handler:f.handler,config:cfg,token,maxBatches:1,fetchFn:async()=>Response.json(records)});
+ assert.deepEqual(await sync(),{added:10,skipped:15});
+ assert.equal((await f.read()).length,11);
+ assert.deepEqual(await sync(),{added:10,skipped:15});
+ assert.deepEqual(await sync(),{added:5,skipped:20});
+ assert.equal((await f.read()).length,26);
 });
 
 test('an owner-created ID racing an import keeps the owner version',async t=>{
