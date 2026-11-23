@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>KeepAlive</key>
+	<dict>
+		<key>SuccessfulExit</key>
+		<false/>
+	</dict>
+	<key>Label</key>
+	<string>chat.playpulse.telegram-bot</string>
+	<key>ProcessType</key>
+	<string>Background</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/absolute/path/to/node</string>
+		<string>--env-file=.env</string>
+		<string>bot.mjs</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>StandardErrorPath</key>
+	<string>/absolute/path/to/Play-Pulse/bot/.runtime/bot.error.log</string>
+	<key>StandardOutPath</key>
+	<string>/absolute/path/to/Play-Pulse/bot/.runtime/bot.log</string>
+	<key>ThrottleInterval</key>
+	<integer>30</integer>
+	<key>WorkingDirectory</key>
+	<string>/absolute/path/to/Play-Pulse/bot</string>
+</dict>
+</plist>

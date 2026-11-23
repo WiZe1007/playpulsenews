@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#0d1929">
+<title>Кабінет · Play Pulse</title>
+<link rel="icon" href="/mark.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/account.css?v=1">
+<script src="/account.js?v=5" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">До вмісту</a>
+<header class="top shell">
+ <a class="account-brand" href="/" aria-label="Play Pulse, головна">
+  <svg viewBox="0 0 40 40" aria-hidden="true"><g><path id="ray" d="M18.3 3.5h3.4l.9 8.4h-5.2Z"/><use href="#ray" transform="rotate(30 20 20)"/><use href="#ray" transform="rotate(60 20 20)"/><use href="#ray" transform="rotate(90 20 20)"/><use href="#ray" transform="rotate(120 20 20)"/><use href="#ray" transform="rotate(150 20 20)"/><use href="#ray" transform="rotate(180 20 20)"/><use href="#ray" transform="rotate(210 20 20)"/><use href="#ray" transform="rotate(240 20 20)"/><use href="#ray" transform="rotate(270 20 20)"/><use href="#ray" transform="rotate(300 20 20)"/><use href="#ray" transform="rotate(330 20 20)"/></g></svg><span>Play Pulse</span>
+ </a>
+ <a class="button secondary feed-link" href="/#news">До стрічки</a>
+ <button class="button secondary logout" id="logout" type="button" hidden>Вийти</button>
+</header>
+<main id="main" class="shell">
+ <section id="loading" class="auth-region" aria-live="polite">
+  <div class="glass auth"><h1>Кабінет Play Pulse</h1><p id="loading-text">Перевіряю доступ…</p><button id="retry" class="button secondary" type="button" hidden>Спробувати ще раз</button></div>
+ </section>
+ <section id="signed-out" class="auth-region" aria-labelledby="auth-title" hidden>
+  <div class="glass auth">
+   <h1 id="auth-title" tabindex="-1">Вхід у кабінет</h1>
+   <p id="auth-intro">Введи логін і пароль Play Pulse.</p>
+   <form id="login-form" class="form" method="post" action="/api/account/login" hidden>
+    <label>Логін<input name="username" autocomplete="username" maxlength="32" autocapitalize="off" spellcheck="false" required></label>
+    <label>Пароль<input name="password" type="password" autocomplete="current-password" required></label>
+    <button class="button primary" type="submit">Увійти</button>
+   </form>
+   <form id="setup-form" class="form" method="post" action="/api/account/setup" hidden>
+    <label>Логін<input name="username" autocomplete="username" autocapitalize="off" spellcheck="false" minlength="3" maxlength="32" pattern="[A-Za-z][A-Za-z0-9._\-]{2,31}" aria-describedby="username-rule" required><small id="username-rule">3–32 символи: латинські літери, цифри, крапка, дефіс або підкреслення. Почни з літери.</small></label>
+    <label>Пароль<input name="password" type="password" autocomplete="new-password" aria-describedby="password-rule" required><small id="password-rule">Щонайменше 12 символів. Збережи пароль у менеджері паролів.</small></label>
+    <label>Повтори пароль<input name="confirm" type="password" autocomplete="new-password" required></label>
+    <button class="button primary" type="submit">Створити кабінет</button>
+   </form>
+   <p id="auth-message" class="notice" role="status" aria-live="polite" hidden></p>
+  </div>
+ </section>
+ <section id="admin" aria-labelledby="admin-title" hidden>
+  <div class="admin-head">
+   <div><h1 id="admin-title" tabindex="-1">Кабінет Play Pulse</h1><p>Керування новинами Google Play і Play Console.</p></div>
+   <div class="identity"><span>Увійшов як <strong id="username"></strong></span><button id="password-open" class="button secondary" type="button">Змінити пароль</button></div>
+  </div>
+  <p id="account-message" class="notice" role="status" aria-live="polite" hidden></p>
+  <div class="admin-layout">
+   <section id="admin-archive" class="glass admin-list" aria-labelledby="list-title">
+    <div class="panel-head"><h2 id="list-title" tabindex="-1">Новини</h2><button id="add" class="button secondary add" type="button">Додати новину</button></div>
+    <label class="filter"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4 4"/></svg><input id="filter" type="search" autocomplete="off" placeholder="Знайти новину" aria-label="Знайти новину"></label>
+    <p id="list-message" class="list-message" role="status" aria-live="polite">Завантаження новин…</p>
+    <button id="retry-list" class="button secondary" type="button" hidden>Оновити список</button>
+    <ul id="article-list" class="article-list" aria-label="Новини для редагування"></ul>
+    <button id="admin-more" class="button secondary" type="button" hidden>Показати ще</button>
+   </section>
+   <section id="editor" class="glass admin-editor" aria-labelledby="editor-title">
+    <h2 id="editor-title" tabindex="-1">Додати новину</h2>
+    <p id="editor-mode">Після збереження новина з’явиться у стрічці за вибраною датою.</p>
+    <form id="editor-form" class="form" method="post" action="/api/admin/news" autocomplete="off">
+     <label>Заголовок<input name="title" maxlength="240" required></label>
+     <div class="fields">
+      <label>Категорія<select name="category" required><option value="">Вибери категорію</option><option>Політики</option><option>Публікація</option><option>Монетизація</option><option>Ігри</option><option>Магазин</option><option>API</option><option>Гемблінг</option></select></label>
+      <label>Точність дати<select id="precision"><option value="day">Точна дата</option><option value="month">Лише місяць</option></select></label>
+     </div>
+     <div class="fields">
+      <label id="day-field">Дата публікації<input name="day" type="date" min="2000-01-01" max="2099-12-31" required></label>
+      <label id="month-field" hidden>Місяць публікації<input name="month" type="month" min="2000-01" max="2099-12" placeholder="РРРР-ММ" disabled></label>
+      <label>Статус <span class="optional">необов’язково</span><input name="status" maxlength="70" placeholder="Наприклад, Оновлено"></label>
+     </div>
+     <label>Короткий опис<textarea name="summary" maxlength="1400" rows="3" required></textarea></label>
+     <div class="fields source-fields">
+      <label>Посилання на джерело<input name="source" type="url" maxlength="1200" placeholder="https://developer.android.com/…" aria-describedby="source-hint" required></label>
+      <label>Назва джерела<input name="sourceLabel" maxlength="95" placeholder="Наприклад, Android Developers" required></label>
+     </div>
+     <p id="source-hint" class="list-message" hidden>Для цієї категорії можна додати пряме посилання на допис дозволеного Telegram-каналу. Для основного джерела в Telegram потрібен статус «Повідомлення каналу» або «Підтверджено Google» з додатковим офіційним посиланням Google чи Android.</p>
+     <details id="extra">
+      <summary>Деталі й додаткові джерела</summary>
+      <div class="form extra-inner">
+       <label>Деталі<textarea name="detail" maxlength="3600" rows="4"></textarea></label>
+       <div id="sources"></div>
+       <button id="add-source" class="button secondary minor" type="button">Додати джерело</button>
+      </div>
+     </details>
+     <p id="editor-message" class="notice" role="status" aria-live="polite" hidden></p>
+     <div class="actions">
+      <button id="save" class="button primary" type="submit">Зберегти новину</button>
+      <button id="cancel-edit" class="button secondary" type="button" hidden>Скасувати</button>
+     </div>
+    </form>
+   </section>
+  </div>
+ </section>
+ <noscript><p class="notice" data-kind="error">Увімкни JavaScript, щоб користуватися кабінетом.</p></noscript>
+</main>
+<dialog id="password-dialog" class="glass" aria-labelledby="password-title">
+ <form id="password-form" class="form" method="post" action="/api/account/password">
+  <div class="panel-head"><h2 id="password-title">Змінити пароль</h2><button id="password-close" type="button" class="button secondary close-button" aria-label="Закрити">×</button></div>
+  <label>Логін<input name="username" autocomplete="username" readonly></label>
+  <label>Поточний пароль<input name="currentPassword" type="password" autocomplete="current-password" required></label>
+  <label>Новий пароль<input name="password" type="password" autocomplete="new-password" aria-describedby="new-password-rule" required><small id="new-password-rule">Щонайменше 12 символів. Зміна завершить інші сеанси входу в кабінет.</small></label>
+  <label>Підтвердь новий пароль<input name="confirm" type="password" autocomplete="new-password" required></label>
+  <p id="password-message" class="notice" role="status" aria-live="polite" hidden></p>
+  <button class="button primary" type="submit">Зберегти пароль</button>
+ </form>
+</dialog>
+</body>
+</html>

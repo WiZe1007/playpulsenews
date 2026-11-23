@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Play Pulse: підтверджені оновлення Google Play і Play Console українською, з посиланнями на офіційні джерела.">
+<meta name="theme-color" content="#0b1426"><title>Play Pulse · Новини Google Play</title>
+<link rel="icon" href="/mark.svg" type="image/svg+xml">
+<link rel="preload" as="image" href="/assets/scene-5.webp" fetchpriority="high">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css?v=10">
+<script src="/app.js?v=7" defer></script><script type="module" src="/scene.js?v=3"></script>
+</head>
+<body id="top">
+<a class="skip" href="#news">До стрічки</a>
+<main>
+ <section class="hero" id="hero" aria-labelledby="hero-title">
+  <div class="layer sky" aria-hidden="true">
+   <img id="skyM" alt="" data-scene-src="/assets/scene-1.webp" width="1600" height="900">
+   <img id="skyN" alt="" src="/assets/scene-2.webp" width="1600" height="900">
+  </div>
+  <div class="layer home" aria-hidden="true">
+   <div class="set" id="setM">
+    <div class="layer ground"><img alt="" data-scene-src="/assets/scene-3.webp" width="2560" height="1440"></div>
+    <img class="cut" alt="" data-scene-src="/assets/scene-4.webp" width="2560" height="1440">
+   </div>
+   <div class="set is-on" id="setN">
+    <div class="layer ground"><img alt="" src="/assets/scene-5.webp" fetchpriority="high" width="2560" height="1440"></div>
+    <img class="cut" alt="" src="/assets/scene-6.webp" width="2560" height="1440">
+   </div>
+  </div>
+  <div class="tilt" aria-hidden="true"></div><div class="fog-fallback" aria-hidden="true"></div>
+  <canvas id="fog" aria-hidden="true"></canvas>
+  <div class="ui">
+   <header class="bar">
+    <a class="brand" href="#top" aria-label="Play Pulse, на початок"><svg viewBox="0 0 40 40" aria-hidden="true"><g><path id="ray" d="M18.3 3.5h3.4l.9 8.4h-5.2Z"/><use href="#ray" transform="rotate(30 20 20)"/><use href="#ray" transform="rotate(60 20 20)"/><use href="#ray" transform="rotate(90 20 20)"/><use href="#ray" transform="rotate(120 20 20)"/><use href="#ray" transform="rotate(150 20 20)"/><use href="#ray" transform="rotate(180 20 20)"/><use href="#ray" transform="rotate(210 20 20)"/><use href="#ray" transform="rotate(240 20 20)"/><use href="#ray" transform="rotate(270 20 20)"/><use href="#ray" transform="rotate(300 20 20)"/><use href="#ray" transform="rotate(330 20 20)"/></g></svg>Play Pulse</a>
+    <nav class="links" aria-label="Навігація"><a href="#news">Стрічка</a><a href="#topics">Категорії</a><a href="#sources">Джерела</a></nav>
+    <div class="side"><a class="cabinet-link" href="/account.html">Кабінет</a><button id="jump-saved" class="header-library" type="button">Збережені</button>
+     <div class="toggle" role="group" aria-label="Тема сайту">
+      <button id="bm" type="button" aria-label="Денна тема" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></svg></button>
+      <button id="bn" type="button" aria-label="Нічна тема" aria-pressed="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 14A8.5 8.5 0 0 1 10 3.5 8.5 8.5 0 1 0 20.5 14Z"/></svg></button>
+     </div>
+    </div>
+   </header>
+   <h1 id="hero-title"><span class="l1">Новини Google Play</span><span><i>та</i> <span class="y">Play Console</span></span></h1>
+   <a class="hero-cta hero-read" href="#news">До новин</a>
+   <div class="dock">
+    <p class="cap">Оновлення, правила та інструменти для розробників.<br> Українською. З офіційними першоджерелами.</p>
+   </div>
+  </div>
+ </section>
+ <section class="news-panel" id="news" aria-labelledby="feed-title">
+  <div class="journal-scenery" aria-hidden="true"><div class="journal-backdrop"></div></div>
+  <div class="wrap">
+   <div class="feed-heading feed-masthead">
+    <h2 id="feed-title" tabindex="-1">Стрічка новин</h2>
+    <div class="feed-intro"><p>Оновлення Google Play і Play Console.</p><span>Моніторинг щодня</span></div>
+   </div>
+   <div class="dashboard feed-tools">
+    <div class="filters journal-toolbar">
+     <div class="journal-search" role="search" aria-label="Пошук у стрічці">
+      <label class="search"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4 4"/></svg><input id="search" type="search" placeholder="Пошук у новинах" aria-label="Пошук у новинах" autocomplete="off"></label>
+     </div>
+     <div class="tabs" id="tabs" aria-label="Категорії новин" role="group"></div>
+     <button id="saved" class="save-filter" type="button" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 4h12v16l-6-4-6 4z"/></svg> Збережені</button>
+    </div>
+   </div>
+   <aside id="gambling-guide" class="journal-guide" aria-labelledby="gambling-guide-title" hidden>
+    <div><h3 id="gambling-guide-title">Гемблінг на Android</h3><p>Окрема стрічка про правила публікації азартних застосунків у Google Play. Доступність у магазині та вимоги місцевого законодавства перевіряй окремо.</p></div>
+    <div class="journal-guide-links">
+     <a href="https://support.google.com/googleplay/android-developer/answer/9877032?hl=en" target="_blank" rel="noopener noreferrer">Правила Google Play</a>
+     <a href="https://support.google.com/googleplay/android-developer/answer/12256011?hl=en" target="_blank" rel="noopener noreferrer">Країни та регіони</a>
+    </div>
+    <div class="journal-guide-signals">
+     <span>Джерела в Telegram:</span>
+     <a href="https://t.me/s/trafficarts" target="_blank" rel="noopener noreferrer">Traffic Arts</a>
+     <a href="https://t.me/s/uaff_media" target="_blank" rel="noopener noreferrer">UAFF</a>
+     <a href="https://t.me/s/affhubmedia" target="_blank" rel="noopener noreferrer">Affhub Media</a>
+     <a href="https://t.me/s/igaming_news" target="_blank" rel="noopener noreferrer">iGamingNews</a>
+     <a href="https://t.me/s/playcityukr" target="_blank" rel="noopener noreferrer">PlayCity</a>
+     <a href="https://t.me/s/android_broadcast" target="_blank" rel="noopener noreferrer">Android Broadcast</a>
+     <p>Короткі огляди з цих джерел мають позначку «Повідомлення каналу». Це не зміна правил Google Play без офіційного підтвердження.</p>
+    </div>
+   </aside>
+   <div class="feed-content" id="archive">
+    <div class="feed-meta journal-meta"><h3 id="view-title">Від нових до старих</h3><p id="count" role="status" aria-live="polite">Завантаження стрічки…</p></div>
+    <div id="list" class="journal-list"></div>
+    <div class="more-wrap"><button type="button" class="ghost" id="more" hidden>Показати ще</button></div>
+    <div id="empty" class="empty" hidden><h3 id="empty-title">Нічого не знайдено</h3><p id="empty-reason"></p><button id="reset" class="cta" type="button">Усі новини</button></div>
+    <noscript>Увімкни JavaScript, щоб переглядати й фільтрувати стрічку. <a href="/news.json">Відкрити дані стрічки</a>.</noscript>
+   </div>
+  </div>
+ </section>
+ <section class="topics wrap" id="topics" aria-labelledby="topics-title">
+  <div class="feed-heading"><div><h2 id="topics-title">Категорії</h2></div><p>Від вимог до публікації<br class="wide"> до нових можливостей магазину.</p></div>
+  <div id="topic-grid"></div>
+ </section>
+</main>
+<footer id="end">
+ <div class="wrap">
+  <section id="sources" aria-labelledby="source-title">
+   <h2 id="source-title">Перевірено в першоджерелах.</h2>
+   <p class="lede">Звіряй зміни в офіційних анонсах і документації Google.</p>
+   <div class="source-links">
+    <a href="https://blog.google/products-and-platforms/platforms/google-play/" target="_blank" rel="noopener noreferrer">Блог Google Play</a>
+    <a href="https://developer.android.com/blog/categories/product-news" target="_blank" rel="noopener noreferrer">Android Developers</a>
+    <a href="https://support.google.com/googleplay/android-developer/announcements/13412212?hl=en" target="_blank" rel="noopener noreferrer">Політики Play Console</a>
+    <a href="https://google.play/business/whats-new/" target="_blank" rel="noopener noreferrer">Що нового в Console</a>
+    <a href="https://status.play.google.com/" target="_blank" rel="noopener noreferrer">Статус сервісів</a>
+   </div>
+   <section class="source-group" aria-labelledby="source-official-title">
+    <h3 id="source-official-title">Додаткові офіційні джерела</h3>
+    <div class="source-links">
+     <a href="https://support.google.com/googleplay/android-developer/table/12921780?hl=en" target="_blank" rel="noopener noreferrer">Дедлайни політик</a>
+     <a href="https://developer.android.com/developer-verification" target="_blank" rel="noopener noreferrer">Верифікація розробників</a>
+     <a href="https://developer.android.com/games/docs/release-notes" target="_blank" rel="noopener noreferrer">Оновлення Google Play Games</a>
+     <a href="https://developer.android.com/google/play/age-signals/release-notes" target="_blank" rel="noopener noreferrer">Play Age Signals</a>
+     <a href="https://developer.android.com/google/play/billing/release-notes" target="_blank" rel="noopener noreferrer">Play Billing Library</a>
+     <a href="https://developer.android.com/google/play/integrity/reference/com/google/android/play/core/release-notes" target="_blank" rel="noopener noreferrer">Play Integrity</a>
+    </div>
+   </section>
+   <section class="source-group" aria-labelledby="source-signals-title">
+    <h3 id="source-signals-title">Ранні сигнали</h3>
+    <p>Ці сигнали не підтверджують запуск змін: до загальної стрічки потрапляють лише офіційно підтверджені новини.</p>
+    <div class="source-links">
+     <a href="https://www.androidauthority.com/tag/google-play-store/" target="_blank" rel="noopener noreferrer">Android Authority</a>
+     <a href="https://9to5google.com/guides/google-play-store/" target="_blank" rel="noopener noreferrer">9to5Google</a>
+     <a href="https://support.google.com/googleplay/android-developer/community?hl=en" target="_blank" rel="noopener noreferrer">Спільнота Play Console</a>
+     <a href="https://www.reddit.com/r/googleplayconsole/" target="_blank" rel="noopener noreferrer">Reddit · r/googleplayconsole</a>
+    </div>
+   </section>
+  </section>
+  <div class="footer-line"><a class="brand" href="#top">Play Pulse</a><p>Незалежна стрічка. Не є продуктом Google.</p><a href="#top">На початок</a></div>
+ </div>
+</footer>
+<dialog id="dialog" aria-labelledby="article-title">
+ <div class="article-head"><span id="article-meta" class="eyebrow"></span><button id="close" type="button" aria-label="Закрити" autofocus>×</button></div>
+ <h2 id="article-title"></h2><p id="article-summary"></p><p id="article-detail"></p><div id="article-links"></div>
+</dialog>
+</body></html>

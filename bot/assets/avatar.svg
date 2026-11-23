@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <radialGradient id="bg" cx="38%" cy="20%" r="95%"><stop stop-color="#302155"/><stop offset=".47" stop-color="#16142e"/><stop offset="1" stop-color="#090815"/></radialGradient>
+    <radialGradient id="aura"><stop stop-color="#9c6bff" stop-opacity=".58"/><stop offset=".72" stop-color="#6143df" stop-opacity=".12"/><stop offset="1" stop-color="#4631c7" stop-opacity="0"/></radialGradient>
+    <linearGradient id="rim" x1=".15" y1="0" x2=".92" y2="1" gradientUnits="objectBoundingBox"><stop stop-color="#f7efff"/><stop offset=".47" stop-color="#b998ff"/><stop offset="1" stop-color="#6451db"/></linearGradient>
+    <radialGradient id="orb" cx="33%" cy="23%" r="82%"><stop stop-color="#fcf6ff"/><stop offset=".23" stop-color="#e1caff"/><stop offset=".57" stop-color="#a68aff"/><stop offset=".9" stop-color="#6450e1"/><stop offset="1" stop-color="#6048d0"/></radialGradient>
+    <linearGradient id="pulse" x1="0" y1="0" x2="1" y2="1" gradientUnits="objectBoundingBox"><stop stop-color="#231d67"/><stop offset="1" stop-color="#372487"/></linearGradient>
+  </defs>
+  <path fill="url(#bg)" d="M0 0h1024v1024H0z"/>
+  <circle cx="512" cy="512" r="500" fill="url(#aura)"/>
+  <g fill="none" stroke="#c6adff">
+    <circle cx="512" cy="512" r="391" opacity=".13" stroke-width="2"/>
+    <circle cx="512" cy="512" r="350" opacity=".2" stroke-width="2"/>
+    <path d="M512 121v16m0 750v16m391-391h-16m-750 0h-16" opacity=".48" stroke-width="3" stroke-linecap="round"/>
+  </g>
+  <circle cx="512" cy="512" r="293" fill="url(#orb)" stroke="url(#rim)" stroke-width="7"/>
+  <path d="M302 390c52-90 148-148 250-144" fill="none" stroke="#fff" stroke-opacity=".66" stroke-width="8" stroke-linecap="round"/>
+  <path d="M353 526h61l58-107 73 177 55-82h71" fill="none" stroke="#f0dfff" stroke-opacity=".25" stroke-width="48" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M353 526h61l58-107 73 177 55-82h71" fill="none" stroke="url(#pulse)" stroke-width="32" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="786" cy="250" r="9" fill="#e9d7ff"/>
+  <circle cx="228" cy="759" r="5" fill="#aa91ff" opacity=".8"/>
+</svg>

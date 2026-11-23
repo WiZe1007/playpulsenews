@@ -1,0 +1,156 @@
+[
+  {
+    "id": "turkiye-billing",
+    "date": "2026-11-20",
+    "category": "Монетизація",
+    "title": "Туреччина: Google прискорив зміни в оплаті",
+    "summary": "Нові правила оплати й нижчі сервісні комісії планують запустити не пізніше 31 грудня 2026 року замість вересня 2027 року.",
+    "detail": "Розробники зможуть пропонувати власну оплату поряд із Play Billing або вести користувачів на свій сайт. Окремі 5% стосуються обробки платежів через Play Billing, а не всієї комісії.",
+    "status": "Заплановано",
+    "source": "https://blog.google/intl/tr-tr/sirket-haberleri/google-play-is-modeli-ile-ilgili-guncellemeler/",
+    "sourceLabel": "Анонс Google"
+  },
+  {
+    "id": "developer-verification",
+    "date": "2026-11-19",
+    "category": "Публікація",
+    "title": "Верифікація Android-розробників: глобальний запуск із січня",
+    "summary": "З січня 2027 року верифікація поступово охопить Google Play і ще шість магазинів застосунків, зокрема Galaxy Store та Xiaomi.",
+    "detail": "Розробникам, які публікують через Google Play, варто перевірити статус реєстрації пакетів у Play Console, зокрема для застосунків, що розповсюджуються поза магазином.",
+    "status": "Заплановано",
+    "source": "https://developer.android.com/blog/posts/android-developer-verification-2027",
+    "sourceLabel": "Android Developers"
+  },
+  {
+    "id": "subscriptions-retention",
+    "date": "2026-11-19",
+    "category": "API",
+    "title": "Нові пропозиції для утримання підписників",
+    "summary": "Google Play може показувати пропозицію підписникам, які намагаються скасувати підписку. Розробники задають умови доступності й період дії.",
+    "detail": "API також додав сповіщення про прийняття пропозиції та необов’язковий ETag для уникнення конфліктів під час паралельного скасування чи відкликання підписки.",
+    "status": "Оновлено",
+    "source": "https://developer.android.com/google/play/billing/play-developer-apis-release-notes",
+    "sourceLabel": "Журнал API"
+  },
+  {
+    "id": "adaptive-apps",
+    "date": "2026-11-18",
+    "category": "Публікація",
+    "title": "Нові стандарти для застосунків на складаних пристроях",
+    "summary": "З квітня 2027 року для нових застосунків та оновлень діятиме базовий стандарт Tier 3. Для нової публікації або оновлення сторінки знадобляться три скріншоти зі складаних пристроїв і два звичайні.",
+    "detail": "Слоти для скріншотів уже відкриті. З серпня 2027 року нові та оновлені застосунки мають орієнтуватися на Android 17 (API 37).",
+    "status": "Заплановано",
+    "source": "https://developer.android.com/blog/posts/google-play-adaptive-quality-standards",
+    "sourceLabel": "Вимоги Google"
+  },
+  {
+    "id": "adaptive-games",
+    "date": "2026-11-18",
+    "category": "Ігри",
+    "title": "Ігри: базова підтримка великих і складаних екранів",
+    "summary": "Із серпня 2027 року Google Play вимагатиме від ігор базової підтримки великих і складаних екранів за стандартом Tier 3.",
+    "detail": "Перевірте, чи гра зберігає стан під час складання, розкладання та повороту екрана.",
+    "status": "Заплановано",
+    "source": "https://developer.android.com/blog/posts/elevating-game-quality-foldables-large-screens-google-play",
+    "sourceLabel": "Вимоги для ігор"
+  },
+  {
+    "id": "las-vegas-play-points",
+    "date": "2026-11-18",
+    "category": "Магазин",
+    "title": "Лімітовані винагороди Play Points у США",
+    "summary": "Google Play запустив спеціальні винагороди Play Points до гоночного тижня в Лас-Вегасі.",
+    "status": "Анонс",
+    "source": "https://blog.google/products-and-platforms/platforms/google-play/auction-google-play-las-vegas/",
+    "sourceLabel": "Google Play"
+  },
+  {
+    "id": "best-of-asia-18",
+    "date": "2026-11-18",
+    "category": "Магазин",
+    "title": "Best of 2026: Японія та Індонезія",
+    "summary": "Google Play опублікував локальні добірки найкращих застосунків та ігор року в Японії та Індонезії.",
+    "status": "Добірка",
+    "source": "https://blog.google/intl/ja-jp/products/android-chrome-play/best-of-play-awards-2026/",
+    "sourceLabel": "Японія",
+    "sources": [
+      {
+        "label": "Індонезія",
+        "url": "https://blog.google/intl/id-id/products/platforms/google-play-best-of-2026-aplikasi-dan-game-terbaik-tahun-ini/"
+      }
+    ]
+  },
+  {
+    "id": "best-of-2026",
+    "date": "2026-11-17",
+    "category": "Магазин",
+    "title": "Best of 2026: переможці в різних країнах",
+    "summary": "Google Play оприлюднив добірки найкращих застосунків та ігор для США, Індії, Південної Кореї й Тайваню.",
+    "status": "Добірка",
+    "source": "https://blog.google/products-and-platforms/platforms/google-play/best-of-play-awards-2026/",
+    "sourceLabel": "США",
+    "sources": [
+      {
+        "label": "Індія",
+        "url": "https://blog.google/intl/en-in/products/platforms/google-play-best-apps-and-games-in-india-in-2026/"
+      },
+      {
+        "label": "Південна Корея",
+        "url": "https://blog.google/intl/ko-kr/products/android-play-hardware/googleplay-best-of-2026-kr/"
+      },
+      {
+        "label": "Тайвань",
+        "url": "https://blog.google/intl/zh-tw/products/android-chrome-play/googleplay-best-of-2026/"
+      }
+    ]
+  },
+  {
+    "id": "merchandising",
+    "date": "2026-11-16",
+    "category": "Монетизація",
+    "title": "Продажі поза застосунком: інструменти Play Console",
+    "summary": "Розділ Merchandising and optimization дозволяє керувати розміщенням товарів у Play Store і на вебі.",
+    "detail": "Покупки через Gemini та окремі інструменти для пропозицій тестують з обраними партнерами.",
+    "status": "Ранній доступ",
+    "source": "https://developer.android.com/blog/posts/beyond-the-app-google-play-buyer-reach",
+    "sourceLabel": "Android Developers"
+  },
+  {
+    "id": "watch-face-preview",
+    "date": "2026-11-16",
+    "category": "Магазин",
+    "title": "Більший перегляд циферблатів у Google Play Store",
+    "summary": "Google Play Store 54.1 додав більший попередній перегляд циферблатів на сторінці застосунку, якщо її відкрито на телефоні.",
+    "status": "Оновлено",
+    "source": "https://support.google.com/product-documentation/answer/14343500?hl=en",
+    "sourceLabel": "Журнал версій"
+  },
+  {
+    "id": "level-up",
+    "date": "2026-11",
+    "category": "Ігри",
+    "title": "Google Play Games Level Up: уточнення критеріїв",
+    "summary": "Уточнено критерії щодо щонайменше 10 доступних досягнень і 5 показників основного геймплею, один із яких має підходити для змагань.",
+    "detail": "Ігрова валюта стала явним прикладом одноразової нагороди. Також уточнено правила для неінтерактивних сцен, окремих турнірних режимів і режиму 60 FPS. Участь у програмі добровільна.",
+    "status": "Оновлено",
+    "source": "https://developer.android.com/games/guidelines#change-notes",
+    "sourceLabel": "Журнал змін"
+  },
+  {
+    "id": "age-signals",
+    "date": "2026-11",
+    "category": "API",
+    "title": "Play Age Signals: бібліотека beta 0.0.6",
+    "summary": "Додано необов’язкову перевірку getApplicableAgeFeatures(), окрему помилку для непідтримуваних пристроїв і можливості тестування.",
+    "detail": "З січня 2027 року Google планує обов’язкову передачу вікових даних через платформу в Бразилії й Каліфорнії. Це не загальний обов’язок інтегрувати SDK.",
+    "status": "Бета",
+    "source": "https://developer.android.com/google/play/age-signals/release-notes",
+    "sourceLabel": "Нотатки SDK",
+    "sources": [
+      {
+        "label": "Регіональні правила",
+        "url": "https://developer.android.com/distribute/age-appropriate-experiences/regional-protections"
+      }
+    ]
+  }
+]
