@@ -3,127 +3,67 @@ import assert from 'node:assert/strict';
 import {formatDigest} from './presentation.mjs';
 
 const SITE='https://play-pulse-news.nemofresh.chatgpt.site';
-const article=(id='policy-one',overrides={})=>({
-  id,date:'2026-11-23',category:'Політики',title:'Оновлення правил Google Play',
-  summary:'Google уточнив вимоги до публікації застосунків.',detail:'Повний опис є на сайті.',
-  status:'Набуло чинності',links:[{label:'Google Play',url:'https://support.google.com/googleplay/android-developer/answer/1'}],
-  ...overrides,
-});
+const article=(id='policy-one',overrides={})=>({id,date:'2026-11-23',category:'Політики',title:'Оновлення правил Google Play',summary:'Google уточнив вимоги до публікації застосунків.',detail:'Повний опис новини без скорочень.',status:'Набуло чинності',links:[{label:'Google Play',url:'https://support.google.com/googleplay/android-developer/answer/1'}],...overrides});
 const visible=text=>text.replace(/<\/?(?:b|i)>/g,'').replace(/&(amp|lt|gt|quot|#39);/g,(_,entity)=>({amp:'&',lt:'<',gt:'>',quot:'"','#39':"'"}[entity]));
 
-test('empty digests produce no Telegram messages',()=>{
-  assert.deepEqual(formatDigest([]),[]);
+test('an empty feed produces no Telegram messages',()=>assert.deepEqual(formatDigest([]),[]));
+
+test('each news item is a separate complete message with its own sources',()=>{
+ const items=[article('first'),article('second',{title:'Друга новина',summary:'Окремий текст.',detail:'Окремі подробиці.'})];
+ const chunks=formatDigest(items,{siteURL:SITE,date:'2026-11-23'});
+ assert.equal(chunks.length,2);
+ for(const [index,{ids,payload,articleId,part,parts}] of chunks.entries()){
+  const item=items[index];assert.deepEqual(ids,[item.id]);assert.equal(articleId,item.id);assert.equal(part,1);assert.equal(parts,1);
+  const decoded=visible(payload.text);assert.ok(decoded.includes(item.title));assert.ok(decoded.includes(item.summary));assert.ok(decoded.includes(item.detail));assert.ok(decoded.includes(item.status));
+  assert.ok(!decoded.includes(items[1-index].title));assert.match(decoded,/Опубліковано: 23 листопада 2026/);assert.doesNotMatch(decoded,/Дайджест|Продовження|Частина/);
+  assert.equal(payload.parse_mode,'HTML');assert.equal(payload.protect_content,true);assert.deepEqual(payload.link_preview_options,{is_disabled:true});
+  const buttons=payload.reply_markup.inline_keyboard.flat();assert.ok(buttons.some(button=>button.url===item.links[0].url));assert.ok(buttons.some(button=>button.url===SITE+'/'));assert.ok(buttons.some(button=>button.callback_data==='list:all:0'));
+ }
 });
 
-test('digest presents complete news with publication date, source buttons and protected payloads',()=>{
-  const item=article();
-  const chunks=formatDigest([item],{siteURL:SITE,date:'2026-11-23'});
-  assert.equal(chunks.length,1);
-  const {ids,payload}=chunks[0];
-  assert.deepEqual(ids,['policy-one']);
-  assert.equal(payload.chat_id,undefined);
-  assert.equal(payload.ids,undefined);
-  assert.equal(payload.parse_mode,'HTML');
-  assert.equal(payload.protect_content,true);
-  assert.deepEqual(payload.link_preview_options,{is_disabled:true});
-  assert.match(payload.text,/<b>PLAY PULSE<\/b>/);
-  assert.match(visible(payload.text),/Дайджест новин/);
-  assert.match(visible(payload.text),/23 листопада 2026/);
-  assert.match(payload.text,/<b>Оновлення правил Google Play<\/b>/);
-  assert.ok(visible(payload.text).includes(item.summary));
-  assert.ok(visible(payload.text).includes(item.status));
-  assert.match(visible(payload.text),/Опубліковано: 23 листопада 2026/);
-  assert.match(visible(payload.text),/01 · .*Політики/u);
-  const buttons=payload.reply_markup.inline_keyboard.flat();
-  assert.ok(buttons.some(button=>button.url===item.links[0].url&&button.text.includes('01')));
-  assert.ok(buttons.some(button=>button.url===SITE+'/'));
-  assert.ok(buttons.some(button=>button.callback_data==='list:all:0'));
-  assert.ok(buttons.every(button=>!button.callback_data?.startsWith('item:')));
+test('full summary and details split only at the Telegram limit and checkpoint only the final part',()=>{
+ const summary='界'.repeat(1400),detail='🧬'.repeat(1800),item=article('long',{summary,detail});
+ const chunks=formatDigest([item]);assert.equal(chunks.length,2);
+ assert.deepEqual(chunks.map(chunk=>chunk.ids),[[],['long']]);assert.deepEqual(chunks.map(chunk=>[chunk.articleId,chunk.part,chunk.parts]),[['long',1,2],['long',2,2]]);
+ const decoded=chunks.map(chunk=>visible(chunk.payload.text));
+ const body=Array.from(decoded.join('')).filter(char=>char==='界'||char==='🧬').join('');assert.equal(body,summary+detail);
+ assert.match(decoded[0],/Частина 1 з 2/);assert.match(decoded[1],/Продовження.*2 з 2/);
+ for(const chunk of chunks){assert.ok(visible(chunk.payload.text).length<=4096);assert.ok(chunk.payload.text.isWellFormed());assert.ok(Buffer.byteLength(chunk.payload.text)<32768);}
+ assert.equal(formatDigest([article('fits',{summary:'x'.repeat(1400),detail:'y'.repeat(2000)})]).length,1);
 });
 
-test('dynamic news text is escaped as Telegram HTML without changing its meaning',()=>{
-  const item=article('escaped',{
-    title:'<b>Заголовок</b> & "цитата"',summary:"Текст <script> & 'апостроф' > 0",
-    status:'<невідомо> & "тест"',
-  });
-  const [{payload}]=formatDigest([item]);
-  assert.doesNotMatch(payload.text,/<script>|<невідомо>/);
-  assert.ok(payload.text.includes('&lt;b&gt;Заголовок&lt;/b&gt; &amp; &quot;цитата&quot;'));
-  assert.ok(payload.text.includes('Текст &lt;script&gt; &amp; &#39;апостроф&#39; &gt; 0'));
-  const decoded=visible(payload.text);
-  assert.ok(decoded.includes(item.title));
-  assert.ok(decoded.includes(item.summary));
-  assert.ok(decoded.includes(item.status));
+test('split HTML preserves every Unicode character and escapes source text without broken entities',()=>{
+ const summary="<&'\"".repeat(350),detail='🚀&<>'.repeat(700),item=article('escaped',{title:'<b>Новина</b> & "цитата"',summary,detail,status:'<статус>'});
+ const chunks=formatDigest([item]);assert.equal(chunks.length,2);
+ const combined=chunks.map(chunk=>visible(chunk.payload.text)).join('');
+ assert.equal((combined.match(/🚀/gu)||[]).length,700);assert.equal((combined.match(/'/g)||[]).length,350);
+ for(const {payload} of chunks){assert.doesNotMatch(payload.text,/<статус>|<script>/);assert.ok(payload.text.includes('&lt;b&gt;Новина&lt;/b&gt;'));assert.ok(payload.text.isWellFormed());assert.ok(visible(payload.text).length<=4096);}
 });
 
-test('large Unicode digests split between articles without losing text, IDs or caller order',()=>{
-  const items=Array.from({length:13},(_,index)=>article('news-'+index,{
-    title:'🎮'.repeat(240),summary:`Матеріал ${index}: `+'🚀'.repeat(630),status:'✓'.repeat(72),
-  }));
-  const chunks=formatDigest(items,{date:'2026-11-23'});
-  assert.ok(chunks.length>1);
-  assert.deepEqual(chunks.flatMap(chunk=>chunk.ids),items.map(item=>item.id));
-  for(const [index,{ids,payload}] of chunks.entries()){
-    assert.ok(ids.length>0&&ids.length<=5);
-    assert.ok(visible(payload.text).length<=3800);
-    assert.ok(Buffer.byteLength(payload.text,'utf8')<32768);
-    assert.ok(visible(payload.text).includes(`Частина ${index+1} з ${chunks.length}`));
-    for(const id of ids){
-      const item=items.find(row=>row.id===id);
-      assert.ok(visible(payload.text).includes(item.title));
-      assert.ok(visible(payload.text).includes(item.summary));
-    }
-    assert.ok(payload.text.isWellFormed());
-  }
+test('many short articles never share a message and keep caller order',()=>{
+ const items=Array.from({length:24},(_,index)=>article('news-'+index,{title:'Новина '+index,summary:'Коротко.',detail:''})),chunks=formatDigest(items);
+ assert.equal(chunks.length,24);assert.deepEqual(chunks.flatMap(chunk=>chunk.ids),items.map(item=>item.id));assert.ok(chunks.every(chunk=>chunk.ids.length===1));
+});
+test('unchanged article payloads remain stable across delivery dates for resumable continuations',()=>{
+ const item=article('stable',{summary:'x'.repeat(1400),detail:'y'.repeat(3600)});
+ assert.deepEqual(formatDigest([item],{date:'2026-11-23'}),formatDigest([item],{date:'2026-11-24'}));
 });
 
-test('escaped worst-case feed records retain full summaries within Telegram parsed-text limit',()=>{
-  const items=Array.from({length:9},(_,index)=>article('quotes-'+index,{
-    title:'"'.repeat(240),summary:"'".repeat(650),status:'&'.repeat(72),
-    links:Array.from({length:9},(_,link)=>({label:'Джерело '+link,url:`https://developer.android.com/news/${index}/${link}`})),
-  }));
-  const chunks=formatDigest(items);
-  assert.deepEqual(chunks.flatMap(chunk=>chunk.ids),items.map(item=>item.id));
-  for(const {ids,payload} of chunks){
-    assert.ok(visible(payload.text).length<=3800);
-    assert.ok(Buffer.byteLength(payload.text,'utf8')<32768);
-    const buttons=payload.reply_markup.inline_keyboard.flat();
-    assert.ok(buttons.length<=12);
-    assert.equal(buttons.filter(button=>button.url?.startsWith('https://developer.android.com/')).length,ids.length*2);
-    for(const button of buttons){
-      if(button.callback_data)assert.ok(Buffer.byteLength(button.callback_data,'utf8')<=64);
-    }
-  }
+test('all available safe source links survive and channel posts omit private callback controls',()=>{
+ const links=Array.from({length:9},(_,index)=>({label:'Джерело '+index,url:'https://developer.android.com/news/'+index}));
+ const [{payload}]=formatDigest([article('channel',{links})],{destination:'channel'}),buttons=payload.reply_markup.inline_keyboard.flat();
+ assert.equal(buttons.filter(button=>button.url?.startsWith('https://developer.android.com/')).length,9);assert.ok(buttons.some(button=>button.url===SITE+'/'));assert.ok(buttons.every(button=>!button.callback_data));
 });
 
-test('short items keep source keyboards bounded and never reorder the feed',()=>{
-  const items=Array.from({length:24},(_,index)=>article('small-'+index,{title:'Новина '+index,summary:'Коротко.'}));
-  const chunks=formatDigest(items);
-  assert.deepEqual(chunks.flatMap(chunk=>chunk.ids),items.map(item=>item.id));
-  assert.ok(chunks.every(chunk=>chunk.ids.length<=5));
-  for(const {payload} of chunks)assert.ok(payload.reply_markup.inline_keyboard.flat().length<=12);
+test('unsafe source and configured site URLs are rejected or omitted',()=>{
+ const bad=['javascript:alert(1)','http://example.com/source','//example.com/source','https://user:secret@example.com/source','https://example.com/ source','https://example.com/\\source','not-a-url'],good='https://developer.android.com/news?a=1&b=2';
+ const [{payload}]=formatDigest([article('urls',{links:[...bad.map(url=>({label:'Unsafe',url})),{label:'Джерело',url:good}]})]);
+ assert.deepEqual(payload.reply_markup.inline_keyboard.flat().filter(button=>button.url&&button.url!==SITE+'/').map(button=>button.url),[good]);
+ for(const siteURL of [...bad,'https://example.com/?token=secret','https://example.com/#secret'])assert.throws(()=>formatDigest([article()],{siteURL}));
 });
 
-test('unsafe source URLs are omitted and unsafe configured site URLs are rejected',()=>{
-  const badURLs=['javascript:alert(1)','http://example.com/source','//example.com/source',
-    'https://user:secret@example.com/source','https://example.com/ source','https://example.com/\\source','not-a-url'];
-  const good='https://developer.android.com/news?a=1&b=2';
-  const [{payload}]=formatDigest([article('urls',{links:[...badURLs.map(url=>({label:'Unsafe',url})),{label:'Джерело',url:good}]})]);
-  const buttons=payload.reply_markup.inline_keyboard.flat();
-  assert.deepEqual(buttons.filter(button=>button.url&&button.url!==SITE+'/').map(button=>button.url),[good]);
-  for(const siteURL of [...badURLs,'https://example.com/?token=secret','https://example.com/#secret']){
-    assert.throws(()=>formatDigest([article()],{siteURL}));
-  }
-});
-
-test('preview is explicit on every part and month-only publication dates do not gain a day',()=>{
-  const items=Array.from({length:6},(_,index)=>article('preview-'+index,{date:'2026-11'}));
-  const chunks=formatDigest(items,{preview:true});
-  for(const {payload} of chunks){
-    assert.match(visible(payload.text),/Приклад оформлення/);
-    assert.match(visible(payload.text),/Опубліковано: листопад 2026/);
-    assert.doesNotMatch(visible(payload.text),/01 листопада/);
-  }
-  assert.ok(formatDigest([article()]).every(chunk=>!chunk.payload.text.includes('Приклад оформлення')));
-  assert.throws(()=>formatDigest([article()],{date:'2026-02-31'}));
+test('preview remains explicit for both example posts and month dates retain their precision',()=>{
+ const chunks=formatDigest([article('preview-one',{date:'2026-11'}),article('preview-two',{date:'2026-11'})],{preview:true});assert.equal(chunks.length,2);
+ for(const {payload} of chunks){assert.match(visible(payload.text),/Приклад оформлення/);assert.match(visible(payload.text),/Опубліковано: листопад 2026/);assert.doesNotMatch(visible(payload.text),/01 листопада/);}
+ assert.ok(formatDigest([article()]).every(chunk=>!chunk.payload.text.includes('Приклад оформлення')));assert.throws(()=>formatDigest([article()],{date:'2026-02-31'}));
 });

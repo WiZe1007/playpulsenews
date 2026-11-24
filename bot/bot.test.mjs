@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {SITE,CATEGORIES,safeSource,config,parseFeed,screen,allowedChat,telegram,feed,handler} from './bot.mjs';
+import * as core from './core.mjs';
 const base={TELEGRAM_BOT_TOKEN:'123456789:'+'A'.repeat(35),TELEGRAM_ALLOWED_USER_IDS:'111, 222',PLAY_PULSE_FEED_TOKEN:'private_fixt'};
 const row=(i=0)=>({id:'post-'+i,title:i===0?'<b>News</b>':'Заголовок '+i,date:i===0?'2026-11':('2026-10-'+String(i).padStart(2,'0')),category:CATEGORIES[i%7],summary:'Текст & <script>',source:'https://developer.android.com/news'});
 test('configuration default private Sites, Render cutover and validation',()=>{
@@ -34,6 +35,11 @@ test('feed parsing and filters, Telegram allowlist, escaped HTML and keyboards',
   assert.equal(safeSource('https://t.me/trafficarts/1','Магазин'),null);
 });
 const auth=(id=111,type='private',chatId=id,text='/start')=>({message:{from:{id},chat:{id:chatId,type},message_id:1,text}});
+test('feed parsing preserves complete canonical summary and detail instead of silently shortening them',()=>{
+  const source={...row(1),summary:'С'.repeat(1390)+'КІНЕЦЬ',detail:'Д'.repeat(3590)+'ПОДРОБИЦІ'};
+  const [item]=parseFeed([source]);assert.equal(item.summary,source.summary);assert.equal(item.detail,source.detail);
+  assert.throws(()=>parseFeed([{...source,summary:'x'.repeat(1401)}]));assert.throws(()=>parseFeed([{...source,detail:'x'.repeat(3601)}]));
+});
 test('silent unauthorised chats and supported callbacks',async()=>{
   const cfg=config(base);
   for(const u of [auth(333),auth(111,'group'),auth(111,'private',222),{message:{chat:{type:'private'}}}])assert.equal(allowedChat(u,cfg.allowed),null);
@@ -71,4 +77,16 @@ test('stable article key across feed reorder and protected fallback on stale Tel
   assert.equal(calls.at(-1)[0],'sendMessage');
   assert.equal(calls.at(-1)[1].protect_content,true);
   assert.match(calls.at(-1)[1].text,/Не удалось загрузить новости/);
+});
+test('article lookup and selected private cards preserve full content through Telegram-sized continuations',async()=>{
+  assert.equal(typeof core.articleForAction,'function');
+  const item={...row(1),summary:'界'.repeat(1400),detail:'🧬'.repeat(1800)},items=parseFeed([item]);
+  const action=screen(items,'list:all:0').keyboard[0][0].callback_data;
+  assert.equal(core.articleForAction(items,action).id,item.id);assert.equal(core.articleForAction(items,'home'),null);
+  const calls=[],api=async(method,args)=>{calls.push({method,args});return {result:{message_id:3}};};
+  const handle=handler(new Set(['111']),api,async()=>items);await handle(auth(111,'private',111,'/news'));calls.length=0;
+  await handle({callback_query:{id:'card',from:{id:111},message:auth().message,data:action}});
+  const messages=calls.filter(call=>call.method!=='answerCallbackQuery');assert.deepEqual(messages.map(call=>call.method),['editMessageText','sendMessage']);
+  const decoded=messages.map(call=>call.args.text.replace(/<\/?(?:b|i)>/g,'')).join('');assert.equal((decoded.match(/界/gu)||[]).length,1400);assert.equal((decoded.match(/🧬/gu)||[]).length,1800);
+  assert.ok(messages.every(call=>call.args.text.replace(/<\/?(?:b|i)>/g,'').length<=4096));
 });

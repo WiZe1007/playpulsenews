@@ -87,11 +87,62 @@ test('a failed second chunk resumes only unconfirmed articles after restart',asy
     return true;
   });
   const seen=(await f.readState()).owners['111'].seenIds;
-  assert.equal(seen.length,6,'baseline and first five articles must already be committed');
-  assert.equal((await createNotifier(f.options).check()).sentArticles,2);
-  assert.equal(f.calls.length,1);
+  assert.equal(seen.length,2,'baseline and the first separate article must already be committed');
+  assert.equal((await createNotifier(f.options).check()).sentArticles,6);
+  assert.equal(f.calls.length,6);
   for(const id of seen.filter(id=>id!=='old'))assert.ok(!f.calls[0].args.text.includes('headline '+id));
   assert.equal((await f.readState()).owners['111'].seenIds.length,8);
+});
+
+test('a failed continuation resumes after the confirmed part across restart without marking the article early',async t=>{
+  const f=await fixture(t);await createNotifier(f.options).initialize();
+  f.setItems([article('old'),{...article('long'),summary:'界'.repeat(1400),detail:'🧬'.repeat(1800)}]);
+  let calls=0;
+  await assert.rejects(createNotifier({...f.options,api:async()=>{if(++calls===2)throw Error('temporary transport');return {result:{message_id:30}};}}).check(),{code:'SEND_FAILED'});
+  assert.deepEqual((await f.readState()).owners['111'].seenIds,['old']);
+  const progressPath=f.statePath+'.progress.json',progress=JSON.parse(await readFile(progressPath,'utf8'));
+  assert.equal(progress.owners['111'].articleId,'long');assert.equal(progress.owners['111'].nextPart,2);assert.equal(progress.owners['111'].parts,2);assert.match(progress.owners['111'].fingerprint,/^[a-f0-9]{64}$/);
+  assert.doesNotMatch(JSON.stringify(progress),/界|🧬|developer\.android/);assert.equal((await stat(progressPath)).mode&0o777,0o600);
+  assert.deepEqual(await createNotifier(f.options).check(),{initializedOwners:0,sentMessages:1,sentArticles:1});
+  assert.equal(f.calls.length,1);assert.match(f.calls[0].args.text,/Продовження/);assert.doesNotMatch(f.calls[0].args.text,/界/);
+  assert.deepEqual((await f.readState()).owners['111'].seenIds,['old','long']);assert.deepEqual(JSON.parse(await readFile(progressPath,'utf8')).owners,{});
+});
+
+test('a newer article cannot replace an unfinished continuation cursor after restart',async t=>{
+  const f=await fixture(t);await createNotifier(f.options).initialize();
+  const long={...article('long'),summary:'界'.repeat(1400),detail:'🧬'.repeat(1800)};
+  f.setItems([long,article('old')]);let attempts=0;
+  await assert.rejects(createNotifier({...f.options,api:async(method,args)=>{
+    if(++attempts===2)throw Error('temporary transport');
+    return f.options.api(method,args);
+  }}).check(),{code:'SEND_FAILED'});
+  f.setItems([article('newer','2026-11-24'),long,article('old')]);
+  assert.deepEqual(await createNotifier(f.options).check(),{initializedOwners:0,sentMessages:2,sentArticles:2});
+  assert.equal(f.calls.length,3);
+  assert.match(f.calls[0].args.text,/headline long/);assert.match(f.calls[0].args.text,/Частина 1 з 2/);
+  assert.match(f.calls[1].args.text,/headline long/);assert.match(f.calls[1].args.text,/Продовження/);
+  assert.match(f.calls[2].args.text,/headline newer/);
+  assert.deepEqual((await f.readState()).owners['111'].seenIds,['old','long','newer']);
+});
+
+test('corrupt per-part progress is refused without resetting pending article delivery',async t=>{
+  const f=await fixture(t);await createNotifier(f.options).initialize();f.setItems([article('old'),article('fresh')]);
+  await writeFile(f.statePath+'.progress.json','private invalid progress',{mode:0o600});
+  await assert.rejects(createNotifier(f.options).check(),{code:'STATE_INVALID'});assert.equal(f.calls.length,0);assert.deepEqual((await f.readState()).owners['111'].seenIds,['old']);
+});
+
+test('malformed progress IDs cannot be silently replaced by a new cursor',async t=>{
+  const f=await fixture(t);await createNotifier(f.options).initialize();f.setItems([article('old'),article('fresh')]);
+  await writeFile(f.statePath+'.progress.json',JSON.stringify({version:1,owners:{'111':{articleId:null,fingerprint:'a'.repeat(64),nextPart:1,parts:1}}}),{mode:0o600});
+  await assert.rejects(createNotifier(f.options).check(),{code:'STATE_INVALID'});assert.equal(f.calls.length,0);
+});
+
+test('a failed per-part write is recovered in memory before another Telegram send',async t=>{
+  const f=await fixture(t);await createNotifier(f.options).initialize();f.setItems([article('old'),article('fresh')]);let sends=0;
+  const progressPath=f.statePath+'.progress.json';
+  const notifier=createNotifier({...f.options,api:async()=>{sends++;await rm(progressPath);await mkdir(progressPath);return {result:{message_id:30}};}});
+  await assert.rejects(notifier.check(),{code:'STATE_WRITE_FAILED'});await rm(progressPath,{recursive:true});await notifier.check();
+  assert.equal(sends,1);assert.deepEqual((await f.readState()).owners['111'].seenIds,['old','fresh']);
 });
 
 test('an unconfirmed Telegram result never marks news as delivered',async t=>{

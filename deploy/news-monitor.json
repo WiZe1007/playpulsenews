@@ -1,0 +1,16 @@
+{
+  "provider": "Sites cloud task",
+  "project_id": "appgprj_6b03f46df9c48191a7ff6d15a58ac23f",
+  "automation_id": "Automation_66d54c543084819199fe81c5d284c901",
+  "title": "Play Pulse — пошук і публікація новин",
+  "timezone": "Europe/Kyiv",
+  "schedule": "BEGIN:VEVENT\nDTSTART;TZID=Europe/Kyiv:20261124T100000\nRRULE:FREQ=DAILY;BYHOUR=10;BYMINUTE=0;BYSECOND=0\nEND:VEVENT",
+  "is_enabled": true,
+  "next_run_at_creation": "2026-11-24T10:00:00+02:00",
+  "prompt_file": "deploy/news-monitor-prompt.md",
+  "publication_origin": "https://play-pulse-news.nemofresh.chatgpt.site",
+  "delivery_origin": "https://playpulsenews.play-pulse-cloudflare.workers.dev",
+  "execution": "cloud",
+  "created_on": "2026-11-24",
+  "first_run_observed": false
+}

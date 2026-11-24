@@ -132,17 +132,21 @@ test('imported notification checkpoints deliver only new records and keep the me
  assert.deepEqual(await f.deliver({bucket:storage.createD1Bucket(f.db)}),{initializedOwners:0,sentMessages:0,sentArticles:0});assert.equal(f.calls.length,1);
 });
 
-test('notification invocations send at most three digest chunks and retain the pending remainder',async t=>{
+test('notification invocations send at most three individual articles and retain the pending remainder',async t=>{
  const f=await fixture(t,{records:Array.from({length:20},(_,index)=>row('new-'+String(index).padStart(2,'0')))});await f.seed({'123':owner()});
- assert.deepEqual(await f.deliver(),{initializedOwners:0,sentMessages:3,sentArticles:15});assert.equal((await f.read()).owners['123'].seenIds.length,15);
- assert.deepEqual(await f.deliver(),{initializedOwners:0,sentMessages:1,sentArticles:5});assert.equal(f.calls.length,4);
+ assert.deepEqual(await f.deliver(),{initializedOwners:0,sentMessages:3,sentArticles:3});assert.equal((await f.read()).owners['123'].seenIds.length,3);
+ for(let index=0;index<5;index++)assert.equal((await f.deliver()).sentArticles,3);
+ assert.deepEqual(await f.deliver(),{initializedOwners:0,sentMessages:2,sentArticles:2});assert.equal(f.calls.length,20);
+ assert.equal((await f.deliver()).sentMessages,0);
 });
 
 test('a failed second digest chunk resumes only unconfirmed IDs after the rate limit expires',async t=>{
  const f=await fixture(t,{records:Array.from({length:7},(_,index)=>row('new-'+index))});await f.seed({'123':owner()});let count=0,instant=Date.parse('2026-11-23T10:00:00Z');
  const fetchFn=async()=>++count===2?Response.json({ok:false,error_code:429,parameters:{retry_after:120}},{status:429}):confirmed('sendMessage',count);
- await assert.rejects(f.deliver({fetchFn,now:()=>instant}),safe);assert.equal((await f.read()).owners['123'].seenIds.length,5);
- instant+=121000;assert.deepEqual(await f.deliver({fetchFn,now:()=>instant}),{initializedOwners:0,sentMessages:1,sentArticles:2});assert.equal(count,3);
+ await assert.rejects(f.deliver({fetchFn,now:()=>instant}),safe);assert.equal((await f.read()).owners['123'].seenIds.length,1);
+ instant+=121000;assert.deepEqual(await f.deliver({fetchFn,now:()=>instant}),{initializedOwners:0,sentMessages:3,sentArticles:3});assert.equal(count,5);
+ assert.deepEqual(await f.deliver({fetchFn,now:()=>instant}),{initializedOwners:0,sentMessages:3,sentArticles:3});assert.equal(count,8);
+ assert.equal((await f.read()).owners['123'].seenIds.length,7);
 });
 
 test('per-owner CAS leases prevent overlapping notification sends across isolates',async t=>{
@@ -166,4 +170,36 @@ test('corrupt checkpoints and unavailable feeds stop notifications without reset
  await assert.rejects(f.deliver(),safe);assert.equal(f.calls.length,0);assert.deepEqual(await f.read(),{version:1,owners:{'123':{seenIds:[]}}});
  await f.seed({'123':owner()});await assert.rejects(f.deliver({getFeed:async()=>{throw Error(env.TELEGRAM_BOT_TOKEN);}}),safe);assert.deepEqual((await f.read()).owners['123'].seenIds,[]);
  assert.deepEqual(await bot.deliverFreshNews({env:{PLAY_PULSE_NOTIFICATIONS_ENABLED:'0'}}),{initializedOwners:0,sentMessages:0,sentArticles:0});
+});
+
+test('selected long cards keep full text in bounded edit and continuation messages',async t=>{
+ const long={...row('long-card'),summary:'с'.repeat(1400),detail:'д'.repeat(3600)};
+ const f=await fixture(t,{records:[long]});
+ const action=core.screen(core.parseFeed([long]),'list:all:0',siteURL).keyboard[0][0].callback_data;
+ assert.equal((await f.process(callback(300,action))).status,200);
+ const content=f.calls.filter(call=>['editMessageText','sendMessage'].includes(call.method));
+ assert.equal(content.length,2);assert.deepEqual(content.map(call=>call.method),['editMessageText','sendMessage']);
+ for(const call of content)assert.ok(call.args.text.replace(/<[^>]+>/g,'').length<=4096);
+ const text=content.map(call=>call.args.text).join('');
+ assert.equal([...text].filter(char=>char==='с').length>=1400,true);
+ assert.equal([...text].filter(char=>char==='д').length>=3600,true);
+ assert.equal(content[1].args.protect_content,true);
+});
+
+test('a failed selected-card continuation resumes the next part without repeating its confirmed edit',async t=>{
+ const long={...row('long-retry'),summary:'с'.repeat(1400),detail:'д'.repeat(3600)};
+ const f=await fixture(t,{records:[long]});
+ const action=core.screen(core.parseFeed([long]),'list:all:0',siteURL).keyboard[0][0].callback_data;
+ const update=callback(301,action),baseTime=Date.parse('2026-11-24T08:00:00Z');
+ let sends=0;
+ const fetchFn=async(url,options)=>{
+  if(url.endsWith('/sendMessage')&&++sends===1)return Response.json({ok:false,error_code:429,parameters:{retry_after:2}},{status:429});
+  return f.options.fetchFn(url,options);
+ };
+ assert.equal((await f.process(update,{fetchFn,now:()=>baseTime})).status,503);
+ assert.equal(f.calls.filter(call=>call.method==='editMessageText').length,1);
+ assert.equal((await f.process(update,{now:()=>baseTime+3000})).status,200);
+ assert.equal(f.calls.filter(call=>call.method==='editMessageText').length,1);
+ assert.equal(f.calls.filter(call=>call.method==='sendMessage').length,1);
+ assert.equal((await (await f.bucket.get('telegram/update-301-v1.json')).json()).completed,true);
 });

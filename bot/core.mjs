@@ -1,4 +1,5 @@
 import {createHash} from 'node:crypto';
+import {formatDigest} from './presentation.mjs';
 export const SITE='https://play-pulse-news.nemofresh.chatgpt.site';
 export const CATEGORIES=['Політики','Публікація','Монетизація','Ігри','Магазин','API','Гемблінг'];
 const RU=['Политики','Публикация','Монетизация','Игры','Магазин','API','Гемблинг'];
@@ -7,6 +8,7 @@ const TG_RE=/^https:\/\/t\.me\/(?:s\/)?(?:trafficarts|uaff_media|affhubmedia|iga
 const day=/^20\d\d-(0[1-9]|1[0-2])(?:-(0[1-9]|[12]\d|3[01]))?$/;
 const cut=(s,n)=>Array.from(s).slice(0,n).join('');
 const value=(s,n)=>typeof s==='string'?cut(s.trim(),n):'';
+const completeValue=(s,n)=>typeof s==='string'?(s.trim().length<=n?s.trim():null):'';
 export const escapeHTML=s=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export function safeSource(raw,category) {
   if(typeof raw!=='string'||raw.length>1200||!/^https:\/\/[a-z0-9.-]+\//i.test(raw)||/[\s\\]/.test(raw))return null;
@@ -41,19 +43,23 @@ export function config(e) {
 }
 const key=(s)=>s.normalize('NFKC');
 const articleKey=({id})=>createHash('sha256').update(id).digest('hex').slice(0,18);
+export function articleForAction(items,action){
+  const match=/^item:([0-9a-f]{18}):(all|archive|[0-6]):(\d{1,3})$/.exec(action);
+  return match?items.find(item=>articleKey(item)===match[1])||null:null;
+}
 export function parseFeed(data) {
   if(!Array.isArray(data)||data.length>3000)throw Error('Некорректный формат ленты.');
   const result=new Map();
   for(const x of data){
     if(!x||typeof x!=='object'||!CATEGORIES.includes(x.category)||typeof x.id!=='string'||!/^[a-z0-9][a-z0-9-]{0,95}$/.test(x.id)||typeof x.date!=='string'||!day.test(x.date)|| (x.date.length===10 && (!Number.isFinite(Date.parse(x.date))||new Date(x.date).toISOString().slice(0,10)!==x.date)))continue;
-    const title=value(x.title,240),summary=value(x.summary,650),url=safeSource(x.source,x.category);
-    if(!title||!summary||!url)continue;
+    const title=value(x.title,240),summary=completeValue(x.summary,1400),detail=completeValue(x.detail,3600),url=safeSource(x.source,x.category);
+    if(!title||!summary||detail===null||!url)continue;
     const links=[{label:value(x.sourceLabel,40)||'Оригинал',url}];
     for(const a of (Array.isArray(x.sources)?x.sources.slice(0,8):[])){
       const u=safeSource(a?.url,x.category);
       if(u&&!links.some(z=>z.url===u))links.push({label:value(a.label,40)||'Источник',url:u});
     }
-    result.set(x.id,{id:x.id,date:x.date,category:x.category,title,summary,detail:value(x.detail,800),status:value(x.status,72),links});
+    result.set(x.id,{id:x.id,date:x.date,category:x.category,title,summary,detail,status:value(x.status,72),links});
   }
   if(data.length&&!result.size)throw Error('Лента пока недоступна.');
   return [...result.values()].sort((a,b)=>b.date.localeCompare(a.date)||a.id.localeCompare(b.id));
@@ -109,7 +115,7 @@ export function handler(allowed,api,getFeed,siteURL=SITE){
     const command=/^\/(start|news|menu)(?:@[a-zA-Z0-9_]+)?(?:\s|$)/.exec(typeof input==='string'?input:'');
     if(!c.cb&&!command)return false;
     const action=key(typeof c.cb?.data==='string'?cut(c.cb.data,64):command?.[1]==='news'?'list:all:0':'home');
-    let view;
+    let view,chunks;
     try{
       let items=[];
       if(action.startsWith('list:')||action.startsWith('item:')){
@@ -119,12 +125,24 @@ export function handler(allowed,api,getFeed,siteURL=SITE){
           if(!items||action.endsWith(':0')&&action.startsWith('list:')){items=await getFeed();snapshot.set(c.id,items);}
         }
       }
-      view??=screen(items,action,siteURL);
+      if(!view){
+        const selected=articleForAction(items,action);
+        if(selected)chunks=formatDigest([selected],{siteURL});
+        view=screen(items,action,siteURL);
+      }
     }catch(error){
       if(error?.name==='AbortError')throw error;
       view={text:'Не удалось загрузить новости. Попробуйте ещё раз или откройте сайт.',keyboard:[[callback('Повторить','list:all:0')],site(siteURL),home()]};
     }
     if(action==='home')snapshot.delete(c.id);
+    if(chunks){
+      for(const [index,{payload}] of chunks.entries()){
+        const args={...payload,chat_id:c.id,reply_markup:{inline_keyboard:view.keyboard}};
+        if(c.cb&&index===0){const edit=await api('editMessageText',{...args,message_id:c.msg.message_id});if(edit?.editUnavailable)await api('sendMessage',args);}
+        else await api('sendMessage',args);
+      }
+      return true;
+    }
     const args={chat_id:c.id,text:view.text,parse_mode:'HTML',link_preview_options:{is_disabled:true},reply_markup:{inline_keyboard:view.keyboard}};
     if(c.cb){
       const edit=await api('editMessageText',{...args,message_id:c.msg.message_id});

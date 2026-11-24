@@ -1,9 +1,11 @@
-import {randomUUID,timingSafeEqual} from 'node:crypto';
-import {parseFeed,screen,allowedChat} from '../bot/core.mjs';
+import {randomUUID,timingSafeEqual,createHash} from 'node:crypto';
+import {parseFeed,screen,allowedChat,articleForAction} from '../bot/core.mjs';
 import {formatDigest} from '../bot/presentation.mjs';
 
 const CHECKPOINT='telegram/notifications-v1.json';
+const CHANNEL_CHECKPOINT='telegram/channel-notifications-v1.json';
 const ID=/^[a-z0-9][a-z0-9-]{0,95}$/,OWNER=/^[1-9]\d{0,15}$/;
+const CHANNEL=/^-100\d{1,12}$/;
 const record=value=>value!==null&&typeof value==='object'&&!Array.isArray(value);
 const exact=(value,keys)=>record(value)&&Object.keys(value).length===keys.length&&keys.every(key=>Object.hasOwn(value,key));
 const error=(status=503,retryAfter=60)=>Object.assign(Error('Telegram временно недоступен. Проверьте подключение и сохранённое состояние.'),{status,retryAfter});
@@ -22,6 +24,13 @@ function settings(env,webhook=false){
  return {token,owners,allowed:new Set(owners)};
 }
 
+function destinations(env){
+ const channel=env.TELEGRAM_CHANNEL_ID?.trim()||null;
+ const owners=env.TELEGRAM_OWNER_NOTIFICATIONS_ENABLED??(channel?'0':'1'),backfill=env.TELEGRAM_CHANNEL_BACKFILL??'0';
+ if(channel&&(!CHANNEL.test(channel)||!Number.isSafeInteger(Number(channel)))||!['0','1'].includes(owners)||!['0','1'].includes(backfill))throw error();
+ return {channel,owners:owners==='1',backfill:backfill==='1'};
+}
+
 async function boundedJSON(input,limit){
  if(Number(input.headers.get('content-length')||0)>limit)throw error(413);
  if(!input.body)throw error(400);
@@ -35,7 +44,7 @@ async function boundedJSON(input,limit){
 
 function telegramAPI(token,fetchFn,signal){
  return async(method,args)=>{
-  if(!['sendMessage','editMessageText','answerCallbackQuery'].includes(method))throw error();
+  if(!['sendMessage','editMessageText','answerCallbackQuery','getMe','getChat','getChatMember'].includes(method))throw error();
   try{
    const timeout=AbortSignal.timeout(8000),requestSignal=signal?AbortSignal.any([signal,timeout]):timeout;
    const result=await fetchFn('https://api.telegram.org/bot'+token+'/'+method,{method:'POST',redirect:'manual',headers:{'content-type':'application/json'},body:JSON.stringify(args),signal:requestSignal});
@@ -44,11 +53,52 @@ function telegramAPI(token,fetchFn,signal){
    if(status===400&&method==='editMessageText')return /message is not modified/i.test(data?.description||'')?{notEdited:true}:{editUnavailable:true};
    if(status){const retry=Number.isSafeInteger(data?.parameters?.retry_after)&&data.parameters.retry_after>0?Math.min(86400,data.parameters.retry_after):60;throw error(status,retry);}
    if(data?.ok!==true)throw error();
+   if(['getMe','getChat','getChatMember'].includes(method))return {result:data.result};
    if(method==='answerCallbackQuery'){if(data.result!==true)throw error();}
    else if(!(method==='editMessageText'&&data.result===true)&&(!Number.isSafeInteger(data.result?.message_id)||data.result.message_id<1))throw error();
    return {result:data.result};
   }catch(failure){throw error(Number.isInteger(failure?.status)?failure.status:503,Number.isInteger(failure?.retryAfter)?failure.retryAfter:60);}
  };
+}
+
+export async function verifyChannelAccess({env,fetchFn=fetch,signal}){
+ const cfg=settings(env),{channel}=destinations(env);if(!channel)throw error();
+ const api=telegramAPI(cfg.token,fetchFn,signal),me=(await api('getMe',{})).result;
+ if(!Number.isSafeInteger(me?.id)||me.id<=0||me.is_bot!==true)throw error(403);
+ const chat=(await api('getChat',{chat_id:Number(channel)})).result;
+ if(chat?.id!==Number(channel)||chat.type!=='channel'||typeof chat.title!=='string'||!chat.title.trim())throw error(403);
+ const member=(await api('getChatMember',{chat_id:Number(channel),user_id:me.id})).result;
+ if(member?.user?.id!==me.id||member.user.is_bot!==true||
+   !(member.status==='creator'||member.status==='administrator'&&member.can_post_messages===true))throw error(403);
+ return {id:channel,title:chat.title};
+}
+
+function progressState(value,spec){
+ if(!exact(value,['version','articleId','fingerprint','parts','nextPart'])||value.version!==1||value.articleId!==spec.articleId||
+   typeof value.fingerprint!=='string'||!/^[a-f0-9]{64}$/.test(value.fingerprint)||!Number.isSafeInteger(value.parts)||value.parts<1||
+   !Number.isSafeInteger(value.nextPart)||value.nextPart<1||value.nextPart>value.parts+1)throw error();
+ return value;
+}
+const progressSpec=chunks=>({version:1,articleId:chunks[0].articleId,
+ fingerprint:createHash('sha256').update(JSON.stringify(chunks.map(chunk=>chunk.payload))).digest('hex'),parts:chunks.length,nextPart:1});
+async function prepareProgress(bucket,key,spec){
+ for(let attempt=0;attempt<4;attempt++){
+  const saved=await bucket.get(key),prior=saved?progressState(await saved.json(),spec):null;
+  if(prior?.fingerprint===spec.fingerprint){if(prior.parts!==spec.parts)throw error();return prior;}
+  try{if(await bucket.put(key,JSON.stringify(spec),{onlyIf:conditional(saved)}))return {...spec};}catch{}
+ }
+ throw error();
+}
+async function advanceProgress(bucket,key,spec,nextPart){
+ for(let attempt=0;attempt<4;attempt++){
+  const saved=await bucket.get(key);if(!saved)throw error();
+  const state=progressState(await saved.json(),spec);
+  if(state.fingerprint!==spec.fingerprint||state.parts!==spec.parts)throw error();
+  if(state.nextPart>=nextPart)return state;
+  state.nextPart=nextPart;
+  try{if(await bucket.put(key,JSON.stringify(state),{onlyIf:conditional(saved)}))return state;}catch{}
+ }
+ throw error();
 }
 
 function validLease(value){
@@ -109,9 +159,24 @@ export async function processTelegramUpdate(request,{env,bucket,getFeed,siteURL,
   if(!claim)return response(503,60);if(claim.completed)return response();
   const api=telegramAPI(cfg.token,fetchFn,request.signal);
   if(chat.cb){try{await api('answerCallbackQuery',{callback_query_id:chat.cb.id});}catch(failure){if(failure.status!==400)throw failure;}}
-  let view;
-  try{const items=action.startsWith('list:')||action.startsWith('item:')?parseFeed(await getFeed()):[];view=screen(items,action,siteURL);}
+  let view,selected;
+  try{const items=action.startsWith('list:')||action.startsWith('item:')?parseFeed(await getFeed()):[];selected=articleForAction(items,action);view=screen(items,action,siteURL);}
   catch{view={text:'Не удалось загрузить новости. Попробуйте ещё раз или откройте сайт.',keyboard:[[{text:'Повторить',callback_data:'list:all:0'}],[{text:'🌐 Открыть Play Pulse',url:siteURL}],[{text:'⌂ Главное меню',callback_data:'home'}]]};}
+  if(selected){
+   const chunks=formatDigest([selected],{siteURL}).map(chunk=>({...chunk,payload:{...chunk.payload,reply_markup:{inline_keyboard:view.keyboard}}}));
+   const spec=progressSpec(chunks),progressKey='telegram/update-progress-'+update.update_id+'-v1.json';
+   const progress=await prepareProgress(bucket,progressKey,spec);
+   for(const chunk of chunks.slice(progress.nextPart-1)){
+    const args={...chunk.payload,chat_id:chat.id};
+    if(chat.cb&&chunk.part===1){
+     const {protect_content,...editable}=args;
+     const edited=await api('editMessageText',{...editable,message_id:chat.msg.message_id});
+     if(edited.editUnavailable)await api('sendMessage',{...args,protect_content:true});
+    }else await api('sendMessage',{...args,protect_content:true});
+    await advanceProgress(bucket,progressKey,spec,chunk.part+1);
+   }
+   confirmedReply=true;await finishUpdate(bucket,key,claim);return response();
+  }
   const args={chat_id:chat.id,text:view.text,parse_mode:'HTML',link_preview_options:{is_disabled:true},reply_markup:{inline_keyboard:view.keyboard}};
   if(chat.cb){const edited=await api('editMessageText',{...args,message_id:chat.msg.message_id});if(edited.editUnavailable)await api('sendMessage',{...args,protect_content:true});}
   else await api('sendMessage',{...args,protect_content:true});
@@ -123,17 +188,18 @@ export async function processTelegramUpdate(request,{env,bucket,getFeed,siteURL,
  }
 }
 
-function validateCheckpoint(value){
- if(!exact(value,['version','owners'])||value.version!==1||!record(value.owners))throw error();
- for(const [id,owner] of Object.entries(value.owners))if(!OWNER.test(id)||!Number.isSafeInteger(Number(id))||!exact(owner,['baselineAt','seenIds'])||typeof owner.baselineAt!=='string'||!Number.isFinite(Date.parse(owner.baselineAt))||!Array.isArray(owner.seenIds)||owner.seenIds.some(id=>typeof id!=='string'||!ID.test(id))||new Set(owner.seenIds).size!==owner.seenIds.length)throw error();
+function validateCheckpoint(value,collection='owners'){
+ if(!exact(value,['version',collection])||value.version!==1||!record(value[collection]))throw error();
+ for(const [id,owner] of Object.entries(value[collection]))if(!(collection==='channels'?CHANNEL:OWNER).test(id)||!Number.isSafeInteger(Number(id))||!exact(owner,['baselineAt','seenIds'])||typeof owner.baselineAt!=='string'||!Number.isFinite(Date.parse(owner.baselineAt))||!Array.isArray(owner.seenIds)||owner.seenIds.some(id=>typeof id!=='string'||!ID.test(id))||new Set(owner.seenIds).size!==owner.seenIds.length)throw error();
  return value;
 }
-async function readCheckpoint(bucket){const saved=await bucket.get(CHECKPOINT);return {saved,state:saved?validateCheckpoint(await saved.json()):{version:1,owners:{}}};}
-async function changeCheckpoint(bucket,change){
+const checkpointKey=collection=>collection==='channels'?CHANNEL_CHECKPOINT:CHECKPOINT;
+async function readCheckpoint(bucket,collection='owners'){const saved=await bucket.get(checkpointKey(collection));return {saved,state:saved?validateCheckpoint(await saved.json(),collection):{version:1,[collection]:{}}};}
+async function changeCheckpoint(bucket,change,collection='owners'){
  for(let attempt=0;attempt<4;attempt++){
-  const {saved,state}=await readCheckpoint(bucket),count=change(state);
+  const {saved,state}=await readCheckpoint(bucket,collection),count=change(state);
   if(!count)return {state,count:0};
-  try{if(await bucket.put(CHECKPOINT,JSON.stringify(state),{onlyIf:conditional(saved)}))return {state,count};}catch{}
+  try{if(await bucket.put(checkpointKey(collection),JSON.stringify(state),{onlyIf:conditional(saved)}))return {state,count};}catch{}
  }
  throw error();
 }
@@ -161,32 +227,56 @@ export async function deliverFreshNews({env,bucket,getFeed,siteURL,fetchFn=fetch
  if(env.PLAY_PULSE_NOTIFICATIONS_ENABLED==='0'||env.PLAY_PULSE_NOTIFICATIONS_ENABLED===undefined)return stats;
  try{
   if(env.PLAY_PULSE_NOTIFICATIONS_ENABLED!=='1')throw error();
-  const cfg=settings(env),items=parseFeed(await getFeed()),ids=items.map(item=>item.id),instant=now(),date=new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Kyiv',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(instant));
-  const initialized=await changeCheckpoint(bucket,state=>{
-   let count=0;for(const id of cfg.owners)if(!Object.hasOwn(state.owners,id)){state.owners[id]={baselineAt:new Date(instant).toISOString(),seenIds:[...ids]};count++;}return count;
-  });
-  stats.initializedOwners=initialized.count;let failed,checks=0;
-  // Rotate a bounded owner window so blocked or busy owners cannot exhaust the
-  // free Worker's subrequest allowance or permanently starve later owners.
-  const start=Math.floor(instant/60000)*3%cfg.owners.length,owners=[...cfg.owners.slice(start),...cfg.owners.slice(0,start)];
-  for(const id of owners){
+  const cfg=settings(env),targets=destinations(env),items=parseFeed(await getFeed()),ids=items.map(item=>item.id),instant=now();
+  const groups=[],candidates=[];let failed,checks=0,channelVerified=false;
+  if(targets.owners)groups.push({collection:'owners',ids:cfg.owners});
+  if(targets.channel){groups.push({collection:'channels',ids:[targets.channel]});stats.initializedChannels=0;}
+  for(const group of groups){
+   try{
+    if(group.collection==='channels'){
+     const current=await readCheckpoint(bucket,'channels');
+     if(!Object.hasOwn(current.state.channels,targets.channel)){await verifyChannelAccess({env,fetchFn});channelVerified=true;}
+    }
+    const initialized=await changeCheckpoint(bucket,state=>{
+     let count=0;for(const id of group.ids)if(!Object.hasOwn(state[group.collection],id)){
+      state[group.collection][id]={baselineAt:new Date(instant).toISOString(),seenIds:group.collection==='channels'&&targets.backfill?[]:[...ids]};count++;
+     }return count;
+    },group.collection);
+    if(group.collection==='owners')stats.initializedOwners=initialized.count;else stats.initializedChannels=initialized.count;
+    for(const id of group.ids)candidates.push({id,collection:group.collection,state:initialized.state});
+   }catch(failure){failed??=failure;}
+  }
+  // Bound work and rotate destinations; channel traffic cannot widen private access.
+  const start=candidates.length?Math.floor(instant/60000)%candidates.length:0;
+  const ordered=[...candidates.slice(start),...candidates.slice(0,start)];
+  for(const {id,collection,state:initial} of ordered){
    if(stats.sentMessages>=3||checks>=3)break;
-   const known=new Set(initialized.state.owners[id].seenIds);if(!items.some(item=>!known.has(item.id)))continue;
-   checks++;const leaseKey='telegram/notification-lease-'+id+'-v1.json',claim=await claimOwner(bucket,leaseKey,now());if(!claim)continue;
+   const known=new Set(initial[collection][id].seenIds);if(!items.some(item=>!known.has(item.id)))continue;
+   checks++;const leaseKey='telegram/'+(collection==='channels'?'channel-':'')+'notification-lease-'+id+'-v1.json',claim=await claimOwner(bucket,leaseKey,now());if(!claim)continue;
    let until=0;
    try{
-    const {state}=await readCheckpoint(bucket),owner=state.owners[id];if(!owner)throw error();
-    const seen=new Set(owner.seenIds),fresh=items.filter(item=>!seen.has(item.id)).slice(0,15),chunks=formatDigest(fresh,{siteURL,date});
+    if(collection==='channels'&&!channelVerified){await verifyChannelAccess({env,fetchFn});channelVerified=true;}
+    const {state}=await readCheckpoint(bucket,collection),owner=state[collection][id];if(!owner)throw error();
+    const seen=new Set(owner.seenIds),pending=items.filter(item=>!seen.has(item.id));
+    if(collection==='channels')pending.sort((a,b)=>a.date.localeCompare(b.date)||a.id.localeCompare(b.id));
+    const fresh=pending.slice(0,15);
     const api=telegramAPI(cfg.token,fetchFn);
-    for(const {ids:sentIds,payload} of chunks){
+    for(const item of fresh){
      if(stats.sentMessages>=3)break;
-     await renewOwner(bucket,leaseKey,claim,now());await api('sendMessage',{...payload,chat_id:Number(id)});
+     const chunks=formatDigest([item],{siteURL,destination:collection==='channels'?'channel':'private'}),spec=progressSpec(chunks);
+     const progressKey='telegram/notification-progress-'+collection+'-'+id+'-'+item.id+'-v1.json';
+     const progress=await prepareProgress(bucket,progressKey,spec),remaining=chunks.length-progress.nextPart+1;
+     if(remaining>3-stats.sentMessages)break;
+     for(const chunk of chunks.slice(progress.nextPart-1)){
+      await renewOwner(bucket,leaseKey,claim,now());await api('sendMessage',{...chunk.payload,chat_id:Number(id)});
+      await advanceProgress(bucket,progressKey,spec,chunk.part+1);stats.sentMessages++;
+     }
      await changeCheckpoint(bucket,current=>{
-      const saved=current.owners[id];if(!saved)throw error();const prior=new Set(saved.seenIds),newIds=sentIds.filter(key=>!prior.has(key));saved.seenIds.push(...newIds);return newIds.length;
-     });
-     stats.sentMessages++;stats.sentArticles+=sentIds.length;
+      const saved=current[collection][id];if(!saved)throw error();if(saved.seenIds.includes(item.id))return 0;saved.seenIds.push(item.id);return 1;
+     },collection);
+     stats.sentArticles++;
     }
-   }catch(failure){until=now()+(failure?.status===403?3600000:(failure?.retryAfter||60)*1000);failed??=failure;}
+   }catch(failure){until=now()+(failure?.status===403&&collection==='owners'?3600000:(failure?.retryAfter||60)*1000);failed??=failure;}
    finally{await releaseOwner(bucket,leaseKey,claim,until);}
   }
   if(failed)throw failed;return stats;

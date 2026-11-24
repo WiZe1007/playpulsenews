@@ -1,7 +1,7 @@
 import {constants} from 'node:fs';
 import {mkdir,open,rename,unlink,rmdir,readdir,lstat,writeFile,readFile} from 'node:fs/promises';
 import {dirname,basename,join,resolve} from 'node:path';
-import {randomUUID} from 'node:crypto';
+import {randomUUID,createHash} from 'node:crypto';
 import {formatDigest} from './presentation.mjs';
 
 const ID=/^[a-z0-9][a-z0-9-]{0,95}$/;
@@ -37,13 +37,22 @@ export function validateNotificationState(state){
   }
   return state;
 }
-async function readState(path,allowMissing){
+function validateProgressState(state){
+  if(!keysAre(state,['version','owners'])||state.version!==1||!record(state.owners))throw new NotificationError('STATE_INVALID');
+  for(const [id,progress] of Object.entries(state.owners)){
+    if(!validOwner(id)||!keysAre(progress,['articleId','fingerprint','nextPart','parts'])||typeof progress.articleId!=='string'||!ID.test(progress.articleId)||
+      typeof progress.fingerprint!=='string'||!/^[a-f0-9]{64}$/.test(progress.fingerprint)||!Number.isInteger(progress.parts)||progress.parts<1||progress.parts>1000||
+      !Number.isInteger(progress.nextPart)||progress.nextPart<1||progress.nextPart>progress.parts+1)throw new NotificationError('STATE_INVALID');
+  }
+  return state;
+}
+async function readState(path,allowMissing,validate=validateNotificationState){
   let file;
   try{
     file=await open(path,constants.O_RDONLY|constants.O_NOFOLLOW);
     const info=await file.stat();
     if(!info.isFile()||info.size>16*1024*1024)throw new NotificationError('STATE_INVALID');
-    const state=validateNotificationState(JSON.parse(await file.readFile('utf8')));
+    const state=validate(JSON.parse(await file.readFile('utf8')));
     await file.chmod(0o600);
     return {state,present:true};
   }catch(error){
@@ -157,13 +166,16 @@ export function createNotifier({getFeed,api,allowed,siteURL,statePath,signal,now
   if(typeof getFeed!=='function'||typeof api!=='function'||typeof statePath!=='string'||!statePath||
     !owners.length||owners.some(id=>!validOwner(id))||new Set(owners).size!==owners.length||typeof getProcessIdentity!=='function')
     throw new NotificationError('CONFIG_INVALID',{retryable:false});
-  const path=resolve(statePath),lockPath=path+'.lock';
-  let busy=false,pendingState,established=false;
+  const path=resolve(statePath),lockPath=path+'.lock',progressPath=path+'.progress.json';
+  let busy=false,pendingState,pendingProgress,established=false,progressEstablished=false;
   const checkAbort=()=>{if(signal?.aborted)throw new DOMException('Операция отменена.','AbortError');};
   const commit=async state=>{
     // If the disk fails after Telegram confirms a send, retry this checkpoint
     // before any further delivery in this process.
     pendingState=state;await writeState(path,state);pendingState=undefined;established=true;
+  };
+  const commitProgress=async state=>{
+    pendingProgress=state;await writeState(progressPath,state);pendingProgress=undefined;progressEstablished=true;
   };
   async function run(deliver){
     if(busy)throw new NotificationError('BUSY');
@@ -185,6 +197,20 @@ export function createNotifier({getFeed,api,allowed,siteURL,statePath,signal,now
         }
         await commit(state);
       }
+      const loadedProgress=await readState(progressPath,!progressEstablished||Boolean(pendingProgress),validateProgressState),progress=loadedProgress.state;
+      if(loadedProgress.present)progressEstablished=true;
+      let progressChanged=false;
+      if(pendingProgress){
+        for(const [id,pending] of Object.entries(pendingProgress.owners)){
+          if(state.owners[id]?.seenIds.includes(pending.articleId))continue;
+          const current=progress.owners[id];
+          if(!current)progress.owners[id]=pending;
+          else if(current.articleId===pending.articleId&&current.fingerprint===pending.fingerprint)current.nextPart=Math.max(current.nextPart,pending.nextPart);
+        }
+        progressChanged=true;
+      }
+      for(const [id,current] of Object.entries(progress.owners))if(state.owners[id]?.seenIds.includes(current.articleId)){delete progress.owners[id];progressChanged=true;}
+      if(progressChanged)await commitProgress(progress);
       let items;
       try{
         items=await getFeed();
@@ -205,31 +231,48 @@ export function createNotifier({getFeed,api,allowed,siteURL,statePath,signal,now
       }
       if(stats.initializedOwners)await commit(state);
       if(!deliver)return stats;
-      for(const id of owners){
+      ownerLoop:for(const id of owners){
         const owner=state.owners[id],seen=new Set(owner.seenIds);
         const fresh=items.filter(item=>!seen.has(item.id));
         if(!fresh.length)continue;
-        let chunks;
+        let chunks,groups;
         try{
           chunks=formatDigest(fresh,{siteURL,date});
           const formatted=chunks.flatMap(chunk=>chunk.ids);
-          if(!chunks.length||chunks.some(chunk=>!chunk.ids.length||typeof chunk.payload?.text!=='string')||
+          if(!chunks.length||chunks.some(chunk=>typeof chunk.payload?.text!=='string')||
             new Set(formatted).size!==formatted.length||formatted.length!==fresh.length||formatted.some(item=>!fresh.some(news=>news.id===item)))throw Error();
+          groups=[...Map.groupBy(chunks,chunk=>chunk.articleId).entries()];
+          if(groups.some(([articleId,parts])=>!ID.test(articleId)||parts.some((chunk,index)=>chunk.part!==index+1||chunk.parts!==parts.length||chunk.ids.length!==(index===parts.length-1?1:0)||chunk.ids.length&&chunk.ids[0]!==articleId)))throw Error();
         }catch{throw new NotificationError('FORMAT_FAILED',{retryable:false});}
-        for(const {ids:sentIds,payload} of chunks){
-          checkAbort();
-          try{
-            const reply=await api('sendMessage',{...payload,chat_id:Number(id)});
-            if(!Number.isSafeInteger(reply?.result?.message_id)||reply.result.message_id<1)throw Error();
-          }catch(error){
-            checkAbort();
-            const failed=new NotificationError('SEND_FAILED',{status:error?.status,fatal:error?.fatal,retryable:error?.retryable});
-            if(!failed.retryable&&!failed.fatal){ownerError??=failed;break;}
-            throw failed;
+        // Finish the saved article before a newer feed entry can replace this
+        // owner's single continuation cursor.
+        const pendingIndex=groups.findIndex(([articleId])=>articleId===progress.owners[id]?.articleId);
+        if(pendingIndex>0)groups.unshift(...groups.splice(pendingIndex,1));
+        for(const [articleId,parts] of groups){
+          const fingerprint=createHash('sha256').update(JSON.stringify(parts.map(chunk=>chunk.payload))).digest('hex');
+          let current=progress.owners[id];
+          if(!current||current.articleId!==articleId||current.fingerprint!==fingerprint){
+            current={articleId,fingerprint,nextPart:1,parts:parts.length};progress.owners[id]=current;await commitProgress(progress);
           }
-          owner.seenIds.push(...sentIds);
-          await commit(state);
-          stats.sentMessages++;stats.sentArticles+=sentIds.length;
+          for(const {ids:sentIds,payload,part} of parts){
+            checkAbort();
+            if(current.nextPart<=part){
+              try{
+                const reply=await api('sendMessage',{...payload,chat_id:Number(id)});
+                if(!Number.isSafeInteger(reply?.result?.message_id)||reply.result.message_id<1)throw Error();
+              }catch(error){
+                checkAbort();
+                const failed=new NotificationError('SEND_FAILED',{status:error?.status,fatal:error?.fatal,retryable:error?.retryable});
+                if(!failed.retryable&&!failed.fatal){ownerError??=failed;continue ownerLoop;}
+                throw failed;
+              }
+              current.nextPart=part+1;await commitProgress(progress);stats.sentMessages++;
+            }
+            if(sentIds.length){
+              owner.seenIds.push(...sentIds);await commit(state);stats.sentArticles+=sentIds.length;
+              delete progress.owners[id];await commitProgress(progress);
+            }
+          }
         }
       }
       if(ownerError)throw ownerError;

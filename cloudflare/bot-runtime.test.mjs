@@ -40,7 +40,8 @@ test('internal delivery imports one bounded source batch before notifying the ow
  const saved=await (await f.bucket.get('news/updates-v1.json')).json();assert.equal(saved.length,11);
  assert.equal(f.calls[0].url,source);assert.ok(f.calls.slice(1).every(call=>call.url.includes('/sendMessage')));
  assert.equal(f.calls.filter(call=>call.url===source).length,1);assert.ok(f.calls.length<=4);
- const checkpoint=await (await f.bucket.get('telegram/notifications-v1.json')).json();assert.equal(checkpoint.owners['123'].seenIds.length,11);
+ const checkpoint=await (await f.bucket.get('telegram/notifications-v1.json')).json();assert.equal(checkpoint.owners['123'].seenIds.length,4);
+ assert.equal(f.calls.filter(call=>call.url.includes('/sendMessage')).length,3,'each imported article is a separate message; the remainder stays pending');
 });
 
 test('source failure still delivers durable pending news and returns a sanitized failure',async t=>{
