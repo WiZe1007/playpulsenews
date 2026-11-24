@@ -1,6 +1,7 @@
 import {randomUUID,timingSafeEqual,createHash} from 'node:crypto';
 import {parseFeed,screen,allowedChat,articleForAction} from '../bot/core.mjs';
 import {formatDigest} from '../bot/presentation.mjs';
+import {resolveArticleMedia,channelMediaMessage,mediaCaptionFits} from './media.mjs';
 
 const CHECKPOINT='telegram/notifications-v1.json';
 const CHANNEL_CHECKPOINT='telegram/channel-notifications-v1.json';
@@ -44,20 +45,28 @@ async function boundedJSON(input,limit){
 
 function telegramAPI(token,fetchFn,signal){
  return async(method,args)=>{
-  if(!['sendMessage','editMessageText','answerCallbackQuery','getMe','getChat','getChatMember'].includes(method))throw error();
+  if(!['sendMessage','sendPhoto','sendVideo','editMessageText','answerCallbackQuery','getMe','getChat','getChatMember'].includes(method))throw error();
   try{
    const timeout=AbortSignal.timeout(8000),requestSignal=signal?AbortSignal.any([signal,timeout]):timeout;
    const result=await fetchFn('https://api.telegram.org/bot'+token+'/'+method,{method:'POST',redirect:'manual',headers:{'content-type':'application/json'},body:JSON.stringify(args),signal:requestSignal});
    if(result.redirected||result.status>=300&&result.status<400)throw error();
    const data=await boundedJSON(result,64*1024),status=!result.ok?result.status:data?.ok===false?Number(data.error_code)||502:0;
    if(status===400&&method==='editMessageText')return /message is not modified/i.test(data?.description||'')?{notEdited:true}:{editUnavailable:true};
-   if(status){const retry=Number.isSafeInteger(data?.parameters?.retry_after)&&data.parameters.retry_after>0?Math.min(86400,data.parameters.retry_after):60;throw error(status,retry);}
+   if(status){
+    const retry=Number.isSafeInteger(data?.parameters?.retry_after)&&data.parameters.retry_after>0?Math.min(86400,data.parameters.retry_after):60,failure=error(status,retry);
+    if(status===400&&data?.ok===false&&Number(data.error_code)===400&&['sendPhoto','sendVideo'].includes(method))failure.mediaRejected=true;
+    throw failure;
+   }
    if(data?.ok!==true)throw error();
    if(['getMe','getChat','getChatMember'].includes(method))return {result:data.result};
    if(method==='answerCallbackQuery'){if(data.result!==true)throw error();}
    else if(!(method==='editMessageText'&&data.result===true)&&(!Number.isSafeInteger(data.result?.message_id)||data.result.message_id<1))throw error();
    return {result:data.result};
-  }catch(failure){throw error(Number.isInteger(failure?.status)?failure.status:503,Number.isInteger(failure?.retryAfter)?failure.retryAfter:60);}
+  }catch(failure){
+   const sanitized=error(Number.isInteger(failure?.status)?failure.status:503,Number.isInteger(failure?.retryAfter)?failure.retryAfter:60);
+   if(failure?.mediaRejected===true)sanitized.mediaRejected=true;
+   throw sanitized;
+  }
  };
 }
 
@@ -222,7 +231,7 @@ async function releaseOwner(bucket,key,claim,until){
  if(!await bucket.put(key,JSON.stringify(claim.state),{onlyIf:{etagMatches:claim.etag}}))throw error();
 }
 
-export async function deliverFreshNews({env,bucket,getFeed,siteURL,fetchFn=fetch,now=Date.now}){
+export async function deliverFreshNews({env,bucket,getFeed,siteURL,fetchFn=fetch,now=Date.now,signal}){
  const stats={initializedOwners:0,sentMessages:0,sentArticles:0};
  if(env.PLAY_PULSE_NOTIFICATIONS_ENABLED==='0'||env.PLAY_PULSE_NOTIFICATIONS_ENABLED===undefined)return stats;
  try{
@@ -260,7 +269,7 @@ export async function deliverFreshNews({env,bucket,getFeed,siteURL,fetchFn=fetch
     const seen=new Set(owner.seenIds),pending=items.filter(item=>!seen.has(item.id));
     if(collection==='channels')pending.sort((a,b)=>a.date.localeCompare(b.date)||a.id.localeCompare(b.id));
     const fresh=pending.slice(0,15);
-    const api=telegramAPI(cfg.token,fetchFn);
+    const api=telegramAPI(cfg.token,fetchFn,signal);
     for(const item of fresh){
      if(stats.sentMessages>=3)break;
      const chunks=formatDigest([item],{siteURL,destination:collection==='channels'?'channel':'private'}),spec=progressSpec(chunks);
@@ -268,7 +277,19 @@ export async function deliverFreshNews({env,bucket,getFeed,siteURL,fetchFn=fetch
      const progress=await prepareProgress(bucket,progressKey,spec),remaining=chunks.length-progress.nextPart+1;
      if(remaining>3-stats.sentMessages)break;
      for(const chunk of chunks.slice(progress.nextPart-1)){
-      await renewOwner(bucket,leaseKey,claim,now());await api('sendMessage',{...chunk.payload,chat_id:Number(id)});
+      const media=collection==='channels'&&chunks.length===1&&mediaCaptionFits(chunk.payload)?await resolveArticleMedia(item,{fetchFn,signal}):null;
+      const message=channelMediaMessage(chunk.payload,media);
+      await renewOwner(bucket,leaseKey,claim,now());
+      if(message){
+       try{await api(message.method,{...message.payload,chat_id:Number(id)});}
+       catch(failure){
+        // Only an explicit rejection proves Telegram did not accept the file.
+        // A network timeout must retain the pending part, never send a second
+        // text version after an attachment may already have been published.
+        if(failure?.mediaRejected!==true)throw failure;
+        await api('sendMessage',{...chunk.payload,chat_id:Number(id)});
+       }
+      }else await api('sendMessage',{...chunk.payload,chat_id:Number(id)});
       await advanceProgress(bucket,progressKey,spec,chunk.part+1);stats.sentMessages++;
      }
      await changeCheckpoint(bucket,current=>{

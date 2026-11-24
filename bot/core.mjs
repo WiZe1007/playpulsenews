@@ -54,10 +54,10 @@ export function parseFeed(data) {
     if(!x||typeof x!=='object'||!CATEGORIES.includes(x.category)||typeof x.id!=='string'||!/^[a-z0-9][a-z0-9-]{0,95}$/.test(x.id)||typeof x.date!=='string'||!day.test(x.date)|| (x.date.length===10 && (!Number.isFinite(Date.parse(x.date))||new Date(x.date).toISOString().slice(0,10)!==x.date)))continue;
     const title=value(x.title,240),summary=completeValue(x.summary,1400),detail=completeValue(x.detail,3600),url=safeSource(x.source,x.category);
     if(!title||!summary||detail===null||!url)continue;
-    const links=[{label:value(x.sourceLabel,40)||'Оригинал',url}];
+    const links=[{label:value(x.sourceLabel,95)||'Оригинал',url}];
     for(const a of (Array.isArray(x.sources)?x.sources.slice(0,8):[])){
       const u=safeSource(a?.url,x.category);
-      if(u&&!links.some(z=>z.url===u))links.push({label:value(a.label,40)||'Источник',url:u});
+      if(u&&!links.some(z=>z.url===u))links.push({label:value(a.label,95)||'Источник',url:u});
     }
     result.set(x.id,{id:x.id,date:x.date,category:x.category,title,summary,detail,status:value(x.status,72),links});
   }
@@ -66,7 +66,6 @@ export function parseFeed(data) {
 }
 const callback=(label,data)=>({text:label,callback_data:data});
 const link=(label,url)=>({text:label,url});
-const catNames=Object.fromEntries(CATEGORIES.map((c,i)=>[c,RU[i]]));
 const site=(url=SITE)=>[link('🌐 Открыть Play Pulse',url)];
 const home=()=>[callback('⌂ Главное меню','home')];
 export function screen(items, action='home', siteURL=SITE) {
@@ -77,8 +76,7 @@ export function screen(items, action='home', siteURL=SITE) {
     const [,index,cat,pg]=itemMatch;
     const x=items.find(i=>articleKey(i)===index);
     if(!x)return {...screen([], 'home',siteURL),text:'Эта карточка уже обновилась. Откройте список снова.'};
-    const h=[x.date,catNames[x.category],x.status].filter(Boolean).map(escapeHTML).join(' · ');
-    return {text:'<b>'+escapeHTML(x.title)+'</b>\n<i>'+h+'</i>\n\n'+escapeHTML(x.summary)+(x.detail?'\n\n'+escapeHTML(x.detail):''),keyboard:[...x.links.map(s=>[link('↗ '+s.label,s.url)]),[callback('‹ К списку','list:'+cat+':'+pg)],site(siteURL),home()]};
+    return {text:formatDigest([x],{siteURL})[0].payload.text,keyboard:[[callback('‹ К списку','list:'+cat+':'+pg)],site(siteURL),home()]};
   }
   const l=/^list:(all|archive|[0-6]):(\d{1,3})$/.exec(action);
   if(!l)return screen([], 'home',siteURL);

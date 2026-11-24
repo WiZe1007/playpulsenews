@@ -64,7 +64,8 @@ test('a new channel quietly baselines its own archive, then posts fresh news wit
  f.setFeed([row('old'),row('fresh')]);
  assert.equal((await f.deliver()).sentArticles,1);
  assert.deepEqual(f.sent().map(call=>call.args.chat_id),[Number(channel)]);
- assert.ok(!f.sent()[0].args.reply_markup.inline_keyboard.flat().some(button=>button.callback_data));
+ assert.equal(f.sent()[0].args.reply_markup,undefined);
+ assert.match(f.sent()[0].args.text,/<a href="https:\/\/developer\.android\.com/);
  const stored=await f.state(channelKey);assert.deepEqual(new Set(stored.channels[channel].seenIds),new Set(['old','fresh']));
  assert.doesNotMatch(JSON.stringify(stored),/Повний|developer.android|123456:/);
  await f.deliver({bucket:createD1Bucket(f.db)});assert.equal(f.sent().length,1);
@@ -186,4 +187,66 @@ test('channel configuration keeps commands restricted to the allowed private own
  assert.equal(f.calls.length,0);
  assert.equal((await telegram.processTelegramUpdate(makeRequest(4,123),{...f.options,env:settings})).status,200);
  assert.deepEqual(f.sent().map(call=>call.args.chat_id),[123]);
+});
+
+const articleSource='https://blog.google/products-and-platforms/platforms/google-play/story/';
+const articlePhoto='https://storage.googleapis.com/gweb-uniblog-publish-prod/images/story.png';
+const mediaHTML=()=>new Response(`<head><meta property="og:image" content="${articlePhoto}"></head>`,{headers:{'content-type':'text/html'}});
+test('a channel article cover and full caption publish as one confirmed post',async t=>{
+ const f=await fixture(t);await f.deliver();f.setFeed([row('old'),row('photo',{source:articleSource,summary:'Повний текст новини.',detail:'Усі подробиці збережені.'})]);
+ let publicReads=0;
+ const fetchFn=(url,options)=>{if(url===articleSource){publicReads++;return mediaHTML();}return f.options.fetchFn(url,options);};
+ const stats=await f.deliver({fetchFn}),photos=f.calls.filter(call=>call.method==='sendPhoto');
+ assert.equal(photos.length,1);assert.equal(f.sent().length,0);assert.equal(publicReads,1);
+ assert.equal(photos[0].args.photo,articlePhoto);assert.match(photos[0].args.caption,/Повний текст новини\./);assert.match(photos[0].args.caption,/Усі подробиці збережені\./);
+ assert.match(photos[0].args.caption,/<a href="https:\/\/blog\.google/);assert.equal(photos[0].args.protect_content,true);
+ assert.equal(photos[0].args.text,undefined);assert.equal(photos[0].args.link_preview_options,undefined);
+ assert.equal(stats.sentMessages,1);assert.equal(stats.sentArticles,1);assert.deepEqual((await f.state(channelKey)).channels[channel].seenIds,['old','photo']);
+ await f.deliver({fetchFn});assert.equal(photos.length,1);assert.equal(publicReads,1);
+});
+
+test('a rejected media file falls back to the complete text only after explicit Telegram 400',async t=>{
+ const f=await fixture(t);await f.deliver();f.setFeed([row('old'),row('photo',{source:articleSource,detail:'Повний контекст.'})]);let attempts=0;
+ const fetchFn=(url,options)=>url===articleSource?mediaHTML():url.endsWith('/sendPhoto')?(attempts++,Response.json({ok:false,error_code:400,description:'wrong file identifier'},{status:400})):f.options.fetchFn(url,options);
+ const stats=await f.deliver({fetchFn});assert.equal(attempts,1);assert.equal(f.sent().length,1);assert.match(f.sent()[0].args.text,/Повний контекст\./);assert.equal(stats.sentArticles,1);
+ assert.deepEqual((await f.state(channelKey)).channels[channel].seenIds,['old','photo']);
+});
+
+test('an uncertain media send leaves the article pending and never sends a duplicate text fallback',async t=>{
+ const f=await fixture(t);await f.deliver();f.setFeed([row('old'),row('photo',{source:articleSource})]);let attempts=0;
+ const fetchFn=(url,options)=>{if(url===articleSource)return mediaHTML();if(url.endsWith('/sendPhoto')){attempts++;throw Error('Network outcome unknown');}return f.options.fetchFn(url,options);};
+ await assert.rejects(f.deliver({fetchFn}));assert.equal(attempts,1);assert.equal(f.sent().length,0);assert.deepEqual((await f.state(channelKey)).channels[channel].seenIds,['old']);
+});
+
+test('a malformed successful media response is uncertain and cannot trigger a second text post',async t=>{
+ const f=await fixture(t);await f.deliver();f.setFeed([row('old'),row('photo',{source:articleSource})]);let attempts=0;
+ const fetchFn=(url,options)=>url===articleSource?mediaHTML():url.endsWith('/sendPhoto')?(attempts++,new Response('{',{headers:{'content-type':'application/json'}})):f.options.fetchFn(url,options);
+ await assert.rejects(f.deliver({fetchFn}));assert.equal(attempts,1);assert.equal(f.sent().length,0);assert.deepEqual((await f.state(channelKey)).channels[channel].seenIds,['old']);
+});
+
+test('a channel post exceeding the caption limit keeps the complete text and private copies stay text',async t=>{
+ const f=await fixture(t,{settings:{...env,TELEGRAM_OWNER_NOTIFICATIONS_ENABLED:'1'}});await f.deliver();
+ f.setFeed([row('old'),row('long',{source:articleSource,summary:'с'.repeat(1100),detail:'Кінець контексту.'})]);let reads=0;
+ const fetchFn=(url,options)=>{if(url===articleSource){reads++;return mediaHTML();}return f.options.fetchFn(url,options);};
+ await f.deliver({fetchFn});assert.equal(f.calls.filter(call=>call.method==='sendPhoto').length,0);assert.equal(f.sent().length,2);
+ assert.ok(f.sent().every(call=>call.args.text.includes('с'.repeat(1100))&&call.args.text.includes('Кінець контексту.')));assert.ok(reads<=2);
+});
+
+test('a real source MP4 publishes as one protected video with the full news caption',async t=>{
+ const f=await fixture(t);await f.deliver();f.setFeed([row('old'),row('video',{source:articleSource,detail:'Повний відеоконтекст.'})]);
+ const video='https://storage.googleapis.com/gweb-uniblog-publish-prod/videos/demo.mp4';
+ const fetchFn=(url,options)=>url===articleSource?new Response(`<head><meta property="og:video" content="${video}"></head>`,{headers:{'content-type':'text/html'}}):f.options.fetchFn(url,options);
+ assert.equal((await f.deliver({fetchFn})).sentArticles,1);
+ const videos=f.calls.filter(call=>call.method==='sendVideo');assert.equal(videos.length,1);assert.equal(videos[0].args.video,video);assert.equal(videos[0].args.supports_streaming,true);assert.equal(videos[0].args.protect_content,true);assert.match(videos[0].args.caption,/Повний відеоконтекст\./);assert.equal(f.sent().length,0);
+});
+
+test('confirmed photo delivery resumes only its failed final checkpoint without re-fetching or resending media',async t=>{
+ const f=await fixture(t);await f.deliver();f.setFeed([row('old'),row('photo',{source:articleSource})]);let reads=0;
+ const fetchFn=(url,options)=>{if(url===articleSource){reads++;return mediaHTML();}return f.options.fetchFn(url,options);};
+ const bucket={get:key=>f.bucket.get(key),put:(key,body,options)=>{
+  if(key===channelKey&&JSON.parse(body).channels[channel].seenIds.includes('photo'))throw Error('Checkpoint unavailable');
+  return f.bucket.put(key,body,options);
+ }};
+ await assert.rejects(f.deliver({fetchFn,bucket}));assert.equal(f.calls.filter(call=>call.method==='sendPhoto').length,1);assert.equal(reads,1);
+ f.advance(61000);const stats=await f.deliver({fetchFn});assert.equal(stats.sentMessages,0);assert.equal(stats.sentArticles,1);assert.equal(reads,1);assert.equal(f.calls.filter(call=>call.method==='sendPhoto').length,1);
 });

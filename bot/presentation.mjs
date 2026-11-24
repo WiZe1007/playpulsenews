@@ -1,6 +1,5 @@
 const SITE='https://play-pulse-news.nemofresh.chatgpt.site';
 const MAX_TEXT=4096;
-const EMOJI={Політики:'🛡',Публікація:'🚀',Монетизація:'💳',Ігри:'🎮',Магазин:'🛍',API:'⚙',Гемблінг:'🎰'};
 const MONTHS=['січень','лютий','березень','квітень','травень','червень','липень','серпень','вересень','жовтень','листопад','грудень'];
 const DAY_MONTHS=['січня','лютого','березня','квітня','травня','червня','липня','серпня','вересня','жовтня','листопада','грудня'];
 const escapeHTML=text=>text.replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
@@ -26,24 +25,41 @@ function publicationDate(raw){
 }
 
 function prefix(item,{preview},part=1,parts=1){
-  const category=(EMOJI[item.category]||'✦')+' '+item.category;
-  const published='Опубліковано: '+publicationDate(item.date);
-  const status=item.status?'Статус: '+item.status:'';
   const continuation=parts>1?(part===1?'Частина ':'Продовження · частина ')+part+' з '+parts:'';
-  const plain=['PLAY PULSE',...(preview?['Приклад оформлення']:[]),category,item.title,published,...(status?[status]:[]),...(continuation?[continuation]:[])].join('\n');
-  const html=['<b>PLAY PULSE</b>',...(preview?['<b>Приклад оформлення</b>']:[]),'<i>'+escapeHTML(category)+'</i>','<b>'+escapeHTML(item.title)+'</b>','<i>'+escapeHTML(published)+'</i>',...(status?['<i>'+escapeHTML(status)+'</i>']:[]),...(continuation?['<i>'+escapeHTML(continuation)+'</i>']:[])].join('\n');
+  const plain=[item.title,...(preview?['Приклад оформлення']:[]),...(continuation?[continuation]:[])].join('\n');
+  const html=['<b>'+escapeHTML(item.title)+'</b>',...(preview?['<i>Приклад оформлення</i>']:[]),...(continuation?['<i>'+escapeHTML(continuation)+'</i>']:[])].join('\n');
   return {plain,html};
 }
 
 function sources(item){
-  const buttons=[];
+  const links=[];
   for(const source of item.links||[]){
-    const url=httpsURL(source?.url);if(!url||buttons.some(button=>button.url===url))continue;
+    const url=httpsURL(source?.url);if(!url||links.some(link=>link.url===url))continue;
     const raw=typeof source.label==='string'?source.label.trim().replace(/\s+/gu,' '):'';
-    const label=Array.from(raw&&!/^(оригинал|источник)$/iu.test(raw)?raw:'Джерело').slice(0,32).join('');
-    buttons.push({text:'↗ '+label,url});if(buttons.length===9)break;
+    const label=raw&&!/^(оригинал|источник)$/iu.test(raw)?raw:'Джерело';
+    links.push({label,url});if(links.length===9)break;
   }
-  return buttons;
+  return links;
+}
+
+function footer(item,links){
+  const metadata=[item.category,publicationDate(item.date),...(item.status?[item.status]:[])].join(' · ');
+  const label=links.length===1?'Джерело: ':'Джерела: ';
+  return {
+    plain:metadata+(links.length?'\n'+label+links.map(link=>link.label).join(' · '):''),
+    html:'<i>'+escapeHTML(metadata)+'</i>'+(links.length?'\n'+label+links.map(link=>'<a href="'+escapeHTML(link.url)+'">'+escapeHTML(link.label)+'</a>').join(' · '):''),
+  };
+}
+
+function mediaPreview(links){
+  for(const {url} of links){
+    const {hostname,pathname}=new URL(url);
+    const article=hostname==='blog.google'&&/^\/(?:(?:products-and-platforms\/(?:platforms|products)\/[^/]+)|(?:products\/[^/]+)|(?:intl\/[a-z]{2}(?:-[a-z]{2})?\/(?:products\/[^/]+|(?!products(?:\/|$))[^/]+)))\/[^/]+\/?$/i.test(pathname)||
+      hostname==='developer.android.com'&&/^\/blog\/posts\/[^/]+\/?$/.test(pathname)||
+      hostname==='android-developers.googleblog.com'&&/^\/20\d{2}\/\d{2}\/[^/]+\.html$/.test(pathname);
+    if(article)return {is_disabled:false,url,prefer_large_media:true,show_above_text:true};
+  }
+  return {is_disabled:true};
 }
 
 function splitBody(body,limit){
@@ -69,23 +85,27 @@ function splitBody(body,limit){
 export function formatDigest(items,{siteURL=SITE,date,preview=false,destination='private'}={}){
   if(!items.length)return [];
   const site=httpsURL(siteURL,true);if(!site)throw new TypeError('Потрібна безпечна HTTPS-адреса сайту.');
-  const options={date:date===undefined?undefined:publicationDate(date),preview},messages=[];
+  if(date!==undefined)publicationDate(date);
+  const options={preview},messages=[];
   for(const item of items){
-    const body=item.summary+(item.detail?'\n\n'+item.detail:''),first=prefix(item,options);
+    const body=item.summary+(item.detail?'\n\n'+item.detail:''),first=prefix(item,options),links=sources(item),ending=footer(item,links),media=mediaPreview(links);
     let pieces=[body];
-    if(first.plain.length+2+body.length>MAX_TEXT){
+    if(first.plain.length+body.length+ending.plain.length+4>MAX_TEXT){
       let total=2;
       for(;;){
-        pieces=splitBody(body,MAX_TEXT-prefix(item,options,total,total).plain.length-2);
+        const capacity=MAX_TEXT-prefix(item,options,total,total).plain.length-2;
+        pieces=splitBody(body,capacity);
+        // Only the last part needs room for source labels and metadata. Earlier
+        // parts can use the full text budget instead of creating extra messages.
+        pieces.push(...splitBody(pieces.pop(),capacity-ending.plain.length-2));
         if(pieces.length===total)break;total=pieces.length;
       }
     }
-    const buttons=sources(item);
     for(const [index,text] of pieces.entries()){
       const part=index+1,parts=pieces.length,heading=prefix(item,options,part,parts);
       messages.push({articleId:item.id,part,parts,ids:part===parts?[item.id]:[],payload:{
-        text:heading.html+'\n\n'+escapeHTML(text),parse_mode:'HTML',link_preview_options:{is_disabled:true},protect_content:true,
-        reply_markup:{inline_keyboard:[...buttons.map(button=>[button]),[{text:'🌐 Открыть Play Pulse',url:site},...(destination==='channel'?[]:[{text:'Все новости',callback_data:'list:all:0'}])]]},
+        text:heading.html+'\n\n'+escapeHTML(text)+(part===parts?'\n\n'+ending.html:''),parse_mode:'HTML',link_preview_options:part===1?media:{is_disabled:true},protect_content:true,
+        ...(destination==='channel'?{}:{reply_markup:{inline_keyboard:[[{text:'Открыть Play Pulse',url:site},{text:'Все новости',callback_data:'list:all:0'}]]}}),
       }});
     }
   }

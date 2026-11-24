@@ -27,7 +27,9 @@ test('feed parsing and filters, Telegram allowlist, escaped HTML and keyboards',
   assert.ok(newest.keyboard.flat().some(x=>x.callback_data==='list:all:1'));
   const item=screen(items,newest.keyboard[0][0].callback_data);
   assert.match(item.text,/Текст &amp; &lt;script&gt;/);
-  assert.equal(item.keyboard.flat()[0].url,'https://developer.android.com/news');
+  assert.match(item.text,/<a href="https:\/\/developer\.android\.com\/news">/);
+  assert.ok(!item.keyboard.flat().some(button=>button.url==='https://developer.android.com/news'));
+  assert.ok(item.keyboard.flat().some(button=>button.callback_data==='list:all:0'));
   assert.match(screen(items,'list:archive:0').text,/Заголовок 1/);
   assert.match(screen(items,'list:6:0').text,/Гемблинг/);
   assert.equal(safeSource('https://t.me/s/PlayCityUkr/229','Гемблінг'),'https://t.me/s/PlayCityUkr/229');
@@ -39,6 +41,12 @@ test('feed parsing preserves complete canonical summary and detail instead of si
   const source={...row(1),summary:'С'.repeat(1390)+'КІНЕЦЬ',detail:'Д'.repeat(3590)+'ПОДРОБИЦІ'};
   const [item]=parseFeed([source]);assert.equal(item.summary,source.summary);assert.equal(item.detail,source.detail);
   assert.throws(()=>parseFeed([{...source,summary:'x'.repeat(1401)}]));assert.throws(()=>parseFeed([{...source,detail:'x'.repeat(3601)}]));
+});
+test('feed parsing preserves complete canonical source names for readable source links',()=>{
+  const sourceLabel='Федеральний реєстр законодавства Австралії: текст чинного закону';
+  const label='Android Developers Blog: технічні вимоги до якості застосунків';
+  const [item]=parseFeed([{...row(1),sourceLabel,sources:[{label,url:'https://developer.android.com/blog/posts/quality'}]}]);
+  assert.deepEqual(item.links.map(link=>link.label),[sourceLabel,label]);
 });
 test('silent unauthorised chats and supported callbacks',async()=>{
   const cfg=config(base);
