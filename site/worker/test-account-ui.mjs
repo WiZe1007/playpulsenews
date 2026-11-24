@@ -33,7 +33,7 @@ class Element {
 }
 
 async function page({ platform = 'render', configured = false, runtimeError = false,
- runtimeStatus = ['render','cloudflare'].includes(platform) ? 200 : 404, accountStatus = 200, search = '' } = {}) {
+ runtimeStatus = ['render','cloudflare'].includes(platform) ? 200 : 404, accountStatus = 200, search = '', authenticated = false } = {}) {
  const nodes = new Map();
  const node = id => {
   if (!nodes.has(id)) nodes.set(id, new Element());
@@ -55,7 +55,7 @@ async function page({ platform = 'render', configured = false, runtimeError = fa
     return Response.json({ ok: true, configured: true, authenticated: true, role: 'admin', username: 'owner' });
    }
    if (path === '/api/account') {
-    return Response.json({ ok: accountStatus === 200, configured, authenticated: false }, { status: accountStatus });
+    return Response.json({ ok: accountStatus === 200, configured, authenticated,...(authenticated?{role:'admin',username:'owner'}:{}) }, { status: accountStatus });
    }
    if (path === '/news.json') return Response.json([]);
    throw new Error('Unexpected request: ' + path);
@@ -117,6 +117,28 @@ test('successful Render login returns to requested feed root', async () => {
  const ui = await page({ configured: true, search: '?next=%2F' });
  await ui.login();
  assert.deepEqual(ui.redirects, ['/']);
+});
+
+test('private login preserves a safe article return link without allowing external navigation',async()=>{
+ for(const platform of ['render','cloudflare']){
+  const target='/?article=story-42&topic=gambling#news';
+  const ui=await page({platform,configured:true,search:'?next='+encodeURIComponent(target)});
+  await ui.login();assert.deepEqual(ui.redirects,[target]);
+ }
+ for(const target of ['//evil.example/?article=story','/\\evil.example','/account.html?article=story','/?article=a&article=b','/?article=%3Cscript%3E','/?topic=unknown','/?article=story&token=secret','/?article=story#other','/./?article=story']){
+  const ui=await page({platform:'cloudflare',configured:true,search:'?next='+encodeURIComponent(target)});
+  await ui.login();assert.deepEqual(ui.redirects,[],target);assert.equal(ui.node('admin').hidden,false);
+ }
+});
+
+test('an existing owner session continues an article return link instead of stopping in the cabinet',async()=>{
+ const target='/?article=story-42#news';
+ for(const platform of ['render','cloudflare']){
+  const ui=await page({platform,configured:true,authenticated:true,search:'?next='+encodeURIComponent(target)});
+  assert.deepEqual(ui.redirects,[target]);
+ }
+ const cabinet=await page({platform:'cloudflare',configured:true,authenticated:true});
+ assert.deepEqual(cabinet.redirects,[]);assert.equal(cabinet.node('admin').hidden,false);
 });
 
 test('successful login keeps cabinet for absent or untrusted return paths', async () => {

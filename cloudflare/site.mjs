@@ -1,4 +1,5 @@
 import {makeApp} from '../site/worker/runtime.mjs';
+import {feedReturnTarget} from '../site/return-target.mjs';
 
 const NEWS_KEY='news/updates-v1.json';
 const PUBLIC_ASSETS=new Set(['/account.html','/account.css','/account.js','/mark.svg','/assets/scene-5.webp']);
@@ -102,7 +103,7 @@ export function createCloudflareSite({env,bucket,origin}){
         const state=await core.fetch(probe,coreEnv);
         if(!state.ok)return deny(503);
         if((await state.json()).authenticated!==true){
-          if(readOnly&&(path==='/'||path.endsWith('.html')))return new Response(null,{status:302,headers:{location:'/account.html?next=%2F','cache-control':'no-store'}});
+          if(readOnly&&(path==='/'||path.endsWith('.html')))return new Response(null,{status:302,headers:{location:'/account.html?next='+encodeURIComponent(feedReturnTarget(url)),'cache-control':'no-store'}});
           return deny();
         }
       }

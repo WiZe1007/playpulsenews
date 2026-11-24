@@ -53,6 +53,31 @@ test('read and writer tokens have distinct narrow scopes and never grant cabinet
   assert.equal((await f.post('/api/news',[row('cross-origin')],{...write,origin:'https://attacker.example'})).status,403);
 });
 
+test('private article links retain only validated feed navigation through owner login',async t=>{
+  const f=await fixture(t);
+  for(const [path,location] of [
+    ['/?article=retained-news','/account.html?next=%2F%3Farticle%3Dretained-news%23news'],
+    ['/?topic=gambling&article=retained-news','/account.html?next=%2F%3Farticle%3Dretained-news%26topic%3Dgambling%23news'],
+    ['/?topic=gambling','/account.html?next=%2F%3Ftopic%3Dgambling%23news']
+  ]){
+    const target=await f.call(path,{headers:{host:'attacker.invalid'}});
+    assert.equal(target.status,302);
+    assert.equal(target.headers.get('location'),location);
+  }
+  assert.equal((await f.call('/news.json?article=retained-news')).status,401);
+  const setup=await f.setup(),cookie=setup.headers.get('set-cookie').split(';')[0];
+  assert.equal((await f.call('/?article=retained-news',{headers:{cookie}})).status,200);
+});
+
+test('untrusted article navigation is never reflected into the login return target',async t=>{
+  const f=await fixture(t);
+  for(const path of ['/?article=%2F%2Fevil.example','/?article=%5Cevil.example','/?article=good&article=other','/?topic=gambling&topic=api','/?article=good&token=private-value','/?article=good&next=https%3A%2F%2Fevil.example','/?topic=unknown','/private.html?article=good']){
+    const response=await f.call(path);
+    assert.equal(response.status,302,path);
+    assert.equal(response.headers.get('location'),'/account.html?next=%2F',path);
+  }
+});
+
 test('owner setup, login, private feed, cabinet edits and logout survive a storage restart',async t=>{
   const f=await fixture(t),response=await f.setup();assert.equal(response.status,200);
   const cookie=response.headers.get('set-cookie').split(';')[0];assert.match(response.headers.get('set-cookie'),/Secure; HttpOnly; SameSite=Strict/);

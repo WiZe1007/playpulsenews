@@ -3,6 +3,23 @@ import {pathToFileURL} from 'node:url';
 
 const DEFAULT_PHOTO=new URL('./assets/avatar.jpg',import.meta.url);
 const tokenPattern=/^\d{5,16}:[\w-]{32,100}$/;
+const DEFAULT_SITE='https://playpulsenews.play-pulse-cloudflare.workers.dev';
+
+export function botDescriptions(env={}){
+  let site;
+  try{
+    const configured=env.PLAY_PULSE_PRESENTATION_URL||env.PLAY_PULSE_PUBLIC_ORIGIN;
+    const raw=configured||env.PLAY_PULSE_FEED_URL||DEFAULT_SITE;
+    if(typeof raw!=='string'||/[\s\\]/.test(raw))throw Error();
+    const url=new URL(raw);
+    if(url.protocol!=='https:'||url.username||url.password||url.port||url.search||url.hash)throw Error();
+    site=(configured||!env.PLAY_PULSE_FEED_URL?url.href:url.origin).replace(/\/$/,'');
+  }catch{throw Error('Проверьте HTTPS-адрес сайта Play Pulse.');}
+  const description='Новости Google Play и Play Console. Все рубрики, Android-гемблинг и архив Play Pulse в одном меню.\n\nСайт: '+site;
+  const short_description='Новости Google Play и Play Console.\n'+site;
+  if(description.length>512||short_description.length>120)throw Error('Адрес сайта слишком длинный для описания Telegram.');
+  return {description,short_description};
+}
 
 function readToken(env){
   const token=env.TELEGRAM_BOT_TOKEN?.trim();
@@ -39,6 +56,7 @@ export async function checkTelegram(token,fetchFn=fetch){
 
 export async function setupBot(env=process.env,{fetchFn=fetch,photoPath=DEFAULT_PHOTO}={}){
   const token=readToken(env);
+  const profile=botDescriptions(env);
   let photo;
   try{
     photo=await readFile(photoPath);
@@ -47,8 +65,8 @@ export async function setupBot(env=process.env,{fetchFn=fetch,photoPath=DEFAULT_
   const {username}=await checkTelegram(token,fetchFn);
   const operations=[
     ['setMyName',{name:'Play Pulse'}],
-    ['setMyDescription',{description:'Новости Google Play и Play Console. Все рубрики, Android-гемблинг и архив Play Pulse в одном меню.'}],
-    ['setMyShortDescription',{short_description:'Новости Google Play и Play Console, Android-гемблинг и архив Play Pulse.'}],
+    ['setMyDescription',{description:profile.description}],
+    ['setMyShortDescription',{short_description:profile.short_description}],
     ['setMyCommands',{commands:[
       {command:'start',description:'Открыть Play Pulse'},
       {command:'news',description:'Последние новости'},

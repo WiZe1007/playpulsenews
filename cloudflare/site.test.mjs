@@ -57,6 +57,33 @@ test('read-only and writer credentials stay confined to the exact feed and publi
   assert.equal(f.assetRequests.length,0);
 });
 
+test('private article links retain only validated feed navigation through owner login',async t=>{
+  const f=await fixture(t);
+  for(const [path,location] of [
+    ['/?article=retained-news','/account.html?next=%2F%3Farticle%3Dretained-news%23news'],
+    ['/?topic=gambling&article=retained-news','/account.html?next=%2F%3Farticle%3Dretained-news%26topic%3Dgambling%23news'],
+    ['/?topic=gambling','/account.html?next=%2F%3Ftopic%3Dgambling%23news']
+  ]){
+    const target=await f.call(path,{headers:{host:'attacker.invalid'}});
+    assert.equal(target.status,302);
+    assert.equal(target.headers.get('location'),location);
+  }
+  assert.equal(f.assetRequests.length,0);
+  assert.equal((await f.call('/news.json?article=retained-news')).status,401);
+  const setup=await f.setup(),cookie=setup.headers.get('set-cookie').split(';')[0];
+  assert.equal((await f.call('/?article=retained-news',{headers:{cookie}})).status,200);
+  assert.equal(new URL(f.assetRequests.at(-1).url).search,'?article=retained-news');
+});
+
+test('untrusted article navigation is never reflected into the login return target',async t=>{
+  const f=await fixture(t);
+  for(const path of ['/?article=%2F%2Fevil.example','/?article=%5Cevil.example','/?article=good&article=other','/?topic=gambling&topic=api','/?article=good&token=private-value','/?article=good&next=https%3A%2F%2Fevil.example','/?topic=unknown','/private.html?article=good']){
+    const response=await f.call(path);
+    assert.equal(response.status,302,path);
+    assert.equal(response.headers.get('location'),'/account.html?next=%2F',path);
+  }
+});
+
 test('D1-backed owner sessions protect private pages and admin writes and logout revokes them',async t=>{
   const f=await fixture(t);
   assert.equal((await f.post('/api/account/setup',f.credentials)).status,403);

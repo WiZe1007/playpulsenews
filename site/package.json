@@ -7,7 +7,7 @@
   },
   "scripts": {
     "start": "node server/start.mjs",
-    "test": "node --test server/*.test.mjs && node worker/test-worker.mjs && node worker/test-account.mjs && node worker/test-account-ui.mjs && node worker/test-insert-only.mjs",
+    "test": "node --test server/*.test.mjs && node worker/test-worker.mjs && node worker/test-account.mjs && node worker/test-account-ui.mjs && node worker/test-news-ui.mjs && node worker/test-insert-only.mjs",
     "build:worker": "node worker/build-worker.mjs"
   }
 }

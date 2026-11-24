@@ -1,5 +1,5 @@
 import {createHash} from 'node:crypto';
-import {formatDigest} from './presentation.mjs';
+import {formatDigest,articleSiteURL} from './presentation.mjs';
 export const SITE='https://play-pulse-news.nemofresh.chatgpt.site';
 export const CATEGORIES=['Політики','Публікація','Монетизація','Ігри','Магазин','API','Гемблінг'];
 const RU=['Политики','Публикация','Монетизация','Игры','Магазин','API','Гемблинг'];
@@ -76,7 +76,7 @@ export function screen(items, action='home', siteURL=SITE) {
     const [,index,cat,pg]=itemMatch;
     const x=items.find(i=>articleKey(i)===index);
     if(!x)return {...screen([], 'home',siteURL),text:'Эта карточка уже обновилась. Откройте список снова.'};
-    return {text:formatDigest([x],{siteURL})[0].payload.text,keyboard:[[callback('‹ К списку','list:'+cat+':'+pg)],site(siteURL),home()]};
+    return {text:formatDigest([x],{siteURL})[0].payload.text,keyboard:[[callback('‹ К списку','list:'+cat+':'+pg)],site(articleSiteURL(siteURL,x.id)),home()]};
   }
   const l=/^list:(all|archive|[0-6]):(\d{1,3})$/.exec(action);
   if(!l)return screen([], 'home',siteURL);

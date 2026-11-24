@@ -77,6 +77,8 @@ function regions(state) {
 function applyAccount(data, focus=false) {
  account = data;
  if (data.authenticated && data.role === 'admin') {
+  const target=feedReturnPath(new URLSearchParams(window.location.search).get('next'));
+  if(privateGateway()&&target){window.location.assign(target);return;}
   regions('admin');
   $('username').textContent = data.username;
   if (!editing && !dirty) resetEditor();
@@ -118,6 +120,17 @@ function checkPassword(password, confirm) {
  if(password!==confirm) return 'Паролі не збігаються.';
  return '';
 }
+function feedReturnPath(raw) {
+ if(typeof raw!=='string'||raw.split(/[?#]/,1)[0]!=='/'||/[\\\u0000-\u0020]/u.test(raw))return null;
+ try {
+  const url=new URL(raw,'https://play-pulse.invalid');
+  if(url.origin!=='https://play-pulse.invalid'||url.pathname!=='/'||url.hash&&!['#news'].includes(url.hash))return null;
+  for(const key of url.searchParams.keys())if(!['article','topic'].includes(key))return null;
+  const ids=url.searchParams.getAll('article'),topics=url.searchParams.getAll('topic');
+  if(ids.length>1||topics.length>1||ids.length&&!/^[a-z0-9][a-z0-9-]{0,95}$/.test(ids[0])||topics.length&&!['policies','publishing','monetization','games','store','api','gambling'].includes(topics[0]))return null;
+  return url.pathname+url.search+url.hash;
+ } catch {return null;}
+}
 async function authSubmit(event, setup) {
  event.preventDefault();
  if(setup && platform!=='sites') return;
@@ -135,10 +148,6 @@ async function authSubmit(event, setup) {
   form.reset();
   notify('auth-message');
   if (data.authenticated && data.role==='admin') {
-   if(privateGateway() && new URLSearchParams(window.location.search).get('next')==='/') {
-    window.location.assign('/');
-    return;
-   }
    applyAccount(data,true);
   }
   else await loadAccount();

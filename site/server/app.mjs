@@ -1,5 +1,6 @@
 import {readFile} from 'node:fs/promises';
 import {timingSafeEqual} from 'node:crypto';
+import {feedReturnTarget} from '../return-target.mjs';
 
 const publicAssets=new Set(['/account.html','/account.css','/account.js','/mark.svg','/assets/scene-5.webp']);
 const accounts=new Set(['/api/account','/api/account/setup','/api/account/login','/api/account/logout','/api/account/password']);
@@ -47,7 +48,7 @@ export async function createSiteHandler({config:cfg,bucket,assets,seed}){
         const state=await app.fetch(probe,env);
         if(!state.ok)return denied(503);
         if((await state.json()).authenticated!==true){
-          if(readOnly&&(path==='/'||path.endsWith('.html')))return new Response(null,{status:302,headers:{location:'/account.html?next=%2F','cache-control':'no-store'}});
+          if(readOnly&&(path==='/'||path.endsWith('.html')))return new Response(null,{status:302,headers:{location:'/account.html?next='+encodeURIComponent(feedReturnTarget(url)),'cache-control':'no-store'}});
           return denied();
         }
       }

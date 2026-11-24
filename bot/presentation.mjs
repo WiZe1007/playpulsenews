@@ -13,6 +13,13 @@ function httpsURL(raw,site=false){
   }catch{return null;}
 }
 
+export function articleSiteURL(siteURL,id){
+  const site=httpsURL(siteURL,true);
+  if(!site||typeof id!=='string'||!/^[a-z0-9][a-z0-9-]{0,95}$/.test(id))throw new TypeError('Потрібні коректні адреса сайту та ID новини.');
+  const article=new URL(site);article.searchParams.set('article',id);article.hash='news';
+  return article.href;
+}
+
 function publicationDate(raw){
   const match=/^(20\d\d)-(0[1-9]|1[0-2])(?:-(0[1-9]|[12]\d|3[01]))?$/.exec(raw);
   if(!match)throw new TypeError('Некоректна дата дайджесту.');
@@ -42,12 +49,12 @@ function sources(item){
   return links;
 }
 
-function footer(item,links){
+function footer(item,links,articleURL){
   const metadata=[item.category,publicationDate(item.date),...(item.status?[item.status]:[])].join(' · ');
   const label=links.length===1?'Джерело: ':'Джерела: ';
   return {
-    plain:metadata+(links.length?'\n'+label+links.map(link=>link.label).join(' · '):''),
-    html:'<i>'+escapeHTML(metadata)+'</i>'+(links.length?'\n'+label+links.map(link=>'<a href="'+escapeHTML(link.url)+'">'+escapeHTML(link.label)+'</a>').join(' · '):''),
+    plain:metadata+(links.length?'\n'+label+links.map(link=>link.label).join(' · '):'')+'\nНовина на Play Pulse',
+    html:'<i>'+escapeHTML(metadata)+'</i>'+(links.length?'\n'+label+links.map(link=>'<a href="'+escapeHTML(link.url)+'">'+escapeHTML(link.label)+'</a>').join(' · '):'')+'\n<a href="'+escapeHTML(articleURL)+'">Новина на Play Pulse</a>',
   };
 }
 
@@ -88,7 +95,8 @@ export function formatDigest(items,{siteURL=SITE,date,preview=false,destination=
   if(date!==undefined)publicationDate(date);
   const options={preview},messages=[];
   for(const item of items){
-    const body=item.summary+(item.detail?'\n\n'+item.detail:''),first=prefix(item,options),links=sources(item),ending=footer(item,links),media=mediaPreview(links);
+    const articleURL=articleSiteURL(site,item.id);
+    const body=item.summary+(item.detail?'\n\n'+item.detail:''),first=prefix(item,options),links=sources(item),ending=footer(item,links,articleURL),media=mediaPreview(links);
     let pieces=[body];
     if(first.plain.length+body.length+ending.plain.length+4>MAX_TEXT){
       let total=2;
@@ -105,7 +113,7 @@ export function formatDigest(items,{siteURL=SITE,date,preview=false,destination=
       const part=index+1,parts=pieces.length,heading=prefix(item,options,part,parts);
       messages.push({articleId:item.id,part,parts,ids:part===parts?[item.id]:[],payload:{
         text:heading.html+'\n\n'+escapeHTML(text)+(part===parts?'\n\n'+ending.html:''),parse_mode:'HTML',link_preview_options:part===1?media:{is_disabled:true},protect_content:true,
-        ...(destination==='channel'?{}:{reply_markup:{inline_keyboard:[[{text:'Открыть Play Pulse',url:site},{text:'Все новости',callback_data:'list:all:0'}]]}}),
+        ...(destination==='channel'?{}:{reply_markup:{inline_keyboard:[[{text:'Открыть Play Pulse',url:articleURL},{text:'Все новости',callback_data:'list:all:0'}]]}}),
       }});
     }
   }

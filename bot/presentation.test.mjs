@@ -5,9 +5,22 @@ import {formatDigest} from './presentation.mjs';
 const SITE='https://play-pulse-news.nemofresh.chatgpt.site';
 const article=(id='policy-one',overrides={})=>({id,date:'2026-11-23',category:'Політики',title:'Оновлення правил Google Play',summary:'Google уточнив вимоги до публікації застосунків.',detail:'Повний опис новини без скорочень.',status:'Набуло чинності',links:[{label:'Google Play',url:'https://support.google.com/googleplay/android-developer/answer/1'}],...overrides});
 const visible=text=>text.replace(/<\/?(?:b|i)>|<a href="[^"]*">|<\/a>/g,'').replace(/&(amp|lt|gt|quot|#39);/g,(_,entity)=>({amp:'&',lt:'<',gt:'>',quot:'"','#39':"'"}[entity]));
-const sourceURLs=text=>[...text.matchAll(/<a href="([^"]*)">/g)].map(match=>visible(match[1]));
+const allURLs=text=>[...text.matchAll(/<a href="([^"]*)">/g)].map(match=>visible(match[1]));
+const sourceURLs=text=>allURLs(text).filter(url=>!url.startsWith(SITE+'/?article='));
 
 test('an empty feed produces no Telegram messages',()=>assert.deepEqual(formatDigest([]),[]));
+
+test('each article links to its own exact page on the configured site',()=>{
+ for(const destination of ['channel','private']){
+  const chunks=formatDigest([article('first'),article('second')],{siteURL:'https://private.example',destination});
+  for(const [index,{payload}] of chunks.entries()){
+   const expected='https://private.example/?article='+['first','second'][index]+'#news';
+   assert.ok(allURLs(payload.text).includes(expected));
+   assert.ok(!allURLs(payload.text).includes('https://private.example/?article='+['second','first'][index]+'#news'));
+   if(destination==='private')assert.ok(payload.reply_markup.inline_keyboard.flat().some(button=>button.url===expected));
+  }
+ }
+});
 
 test('each news item is a separate complete message with its own sources',()=>{
  const items=[article('first'),article('second',{title:'Друга новина',summary:'Окремий текст.',detail:'Окремі подробиці.'})];
@@ -19,7 +32,7 @@ test('each news item is a separate complete message with its own sources',()=>{
   assert.ok(!decoded.includes(items[1-index].title));assert.match(decoded,/23 листопада 2026/);assert.doesNotMatch(decoded,/Дайджест|Продовження|Частина/);
   assert.equal(payload.parse_mode,'HTML');assert.equal(payload.protect_content,true);assert.deepEqual(payload.link_preview_options,{is_disabled:true});
   assert.deepEqual(sourceURLs(payload.text),[item.links[0].url]);
-  const buttons=payload.reply_markup.inline_keyboard.flat();assert.ok(buttons.some(button=>button.url===SITE+'/'));assert.ok(buttons.some(button=>button.callback_data==='list:all:0'));assert.equal(buttons.length,2);
+  const buttons=payload.reply_markup.inline_keyboard.flat();assert.ok(buttons.some(button=>button.url===SITE+'/?article='+item.id+'#news'));assert.ok(buttons.some(button=>button.callback_data==='list:all:0'));assert.equal(buttons.length,2);
  }
 });
 
@@ -103,7 +116,7 @@ test('maximum canonical content with Unicode source names can finish within one 
  const item=article('unicode-budget',{title:'🔬'.repeat(240),summary:'x'.repeat(1400),detail:'y'.repeat(3600),status:'🔬'.repeat(72),links:Array.from({length:9},(_,index)=>({label:'🔬'.repeat(95),url:'https://developer.android.com/'+index}))});
  const chunks=formatDigest([item],{destination:'channel'});assert.ok(chunks.length<=3);
  assert.ok(chunks.every(chunk=>visible(chunk.payload.text).length<=4096));
- const combined=chunks.map(chunk=>visible(chunk.payload.text)).join('');assert.equal((combined.match(/x/g)||[]).length,1400);assert.equal((combined.match(/y/g)||[]).length,3600);
+ const combined=chunks.map(chunk=>{const decoded=visible(chunk.payload.text),body=decoded.slice(decoded.indexOf('\n\n')+2);return chunk.part===chunk.parts?body.slice(0,body.indexOf('\n\nПолітики ·')):body;}).join('');assert.equal((combined.match(/x/g)||[]).length,1400);assert.equal((combined.match(/y/g)||[]).length,3600);
 });
 
 test('editorial article sources enable real large native media above the first part only',()=>{

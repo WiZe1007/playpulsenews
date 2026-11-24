@@ -9,6 +9,19 @@ const me={id:123456789,is_bot:true,first_name:'Play Pulse',username:'play_pulse_
 const webhook={url:'',has_custom_certificate:false,pending_update_count:0};
 const json=result=>new Response(JSON.stringify({ok:true,result}),{headers:{'Content-Type':'application/json'}});
 
+test('setup includes the configured website in both visible bot descriptions without exceeding Telegram limits',async()=>{
+ const profile={};
+ await setupBot({...env,PLAY_PULSE_PUBLIC_ORIGIN:'https://news.example'},{fetchFn:async(url,options)=>{
+  const method=new URL(url).pathname.split('/').at(-1);
+  if(['setMyDescription','setMyShortDescription'].includes(method))profile[method]=JSON.parse(options.body);
+  return json(method==='getMe'?me:method==='getWebhookInfo'?webhook:true);
+ }});
+ assert.ok(profile.setMyDescription.description.includes('https://news.example'));
+ assert.ok(profile.setMyShortDescription.short_description.includes('https://news.example'));
+ assert.ok(profile.setMyDescription.description.length<=512);
+ assert.ok(profile.setMyShortDescription.short_description.length<=120);
+});
+
 test('setup applies the Russian profile and private commands after read-only preflight',async()=>{
   const requests=[];
   const fetchFn=async(url,options)=>{
@@ -34,8 +47,8 @@ test('setup applies the Russian profile and private commands after read-only pre
     {method:'getMe',body:{}},
     {method:'getWebhookInfo',body:{}},
     {method:'setMyName',body:{name:'Play Pulse'}},
-    {method:'setMyDescription',body:{description:'Новости Google Play и Play Console. Все рубрики, Android-гемблинг и архив Play Pulse в одном меню.'}},
-    {method:'setMyShortDescription',body:{short_description:'Новости Google Play и Play Console, Android-гемблинг и архив Play Pulse.'}},
+    {method:'setMyDescription',body:{description:'Новости Google Play и Play Console. Все рубрики, Android-гемблинг и архив Play Pulse в одном меню.\n\nСайт: https://playpulsenews.play-pulse-cloudflare.workers.dev'}},
+    {method:'setMyShortDescription',body:{short_description:'Новости Google Play и Play Console.\nhttps://playpulsenews.play-pulse-cloudflare.workers.dev'}},
     {method:'setMyCommands',body:{commands:[{command:'start',description:'Открыть Play Pulse'},{command:'news',description:'Последние новости'},{command:'menu',description:'Главное меню'}],scope:{type:'all_private_chats'}}},
     {method:'setChatMenuButton',body:{menu_button:{type:'commands'}}},
     {method:'setMyProfilePhoto',body:'multipart JPEG'}
