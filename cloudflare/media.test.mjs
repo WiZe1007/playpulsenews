@@ -55,6 +55,38 @@ test('only a real photo or video in the exact Telegram public post becomes media
  assert.deepEqual(await resolveArticleMedia(article(tg),{fetchFn:async()=>html(`<div data-post='trafficarts/1479'><div><video src="${video}"></video></div></div>`)}),{type:'video',url:video,sourceUrl:tg});
 });
 
+test('newly approved Telegram sources resolve media from their exact public post',async()=>{
+ const cases=[
+  {source:'https://t.me/GAppsLeaks/101',request:'https://t.me/GAppsLeaks/101?embed=1',body:'<div data-post="gappsleaks/101"><a class="tgme_widget_message_photo_wrap" style="background-image:url(\'https://cdn4.telesco.pe/file/android-feature.jpg\')"></a></div>',want:{type:'photo',url:'https://cdn4.telesco.pe/file/android-feature.jpg',sourceUrl:'https://t.me/GAppsLeaks/101'}},
+  {source:'https://t.me/s/traffnews/202',request:'https://t.me/traffnews/202?embed=1',body:'<div data-post="traffnews/202"><video src="https://cdn4.telesco.pe/file/AbCdEf0123456789_approved-video"></video></div>',want:{type:'video',url:'https://cdn4.telesco.pe/file/AbCdEf0123456789_approved-video',sourceUrl:'https://t.me/s/traffnews/202'}},
+ ];
+ for(const item of cases){
+  const result=await resolveArticleMedia(article(item.source),{fetchFn:async(url,options)=>{
+   assert.equal(url,item.request);assert.equal(options.method,'GET');assert.equal(options.redirect,'manual');assert.equal(options.credentials,'omit');
+   assert.deepEqual([...new Headers(options.headers).keys()],['accept']);assert.equal(options.body,undefined);
+   return html(item.body);
+  }});
+  assert.deepEqual(result,item.want);
+  assert.equal(channelMediaMessage({text:'Повна новина.',protect_content:true},result)?.method,item.want.type==='photo'?'sendPhoto':'sendVideo');
+ }
+});
+
+test('new Telegram sources cannot attach channel thumbnails or a different public post',async()=>{
+ for(const handle of ['GAppsLeaks','traffnews']){
+  const source=`https://t.me/${handle}/101`,cdn='https://cdn4.telesco.pe/file/neighbor-image.jpg';let requests=0;
+  const result=await resolveArticleMedia(article(source),{fetchFn:async()=>{
+   requests++;
+   return html(`<meta property="og:image" content="${cdn}"><div data-post="${handle}/100"><a class="tgme_widget_message_photo_wrap" style="background-image:url('${cdn}')"></a></div><div data-post="other/101"><video src="https://cdn4.telesco.pe/file/wrong.mp4"></video></div><div data-post="${handle}/101"><img src="${cdn}"></div>`);
+  }});
+  assert.equal(requests,1);assert.equal(result,null);
+ }
+});
+
+test('new Telegram source names do not permit redirects, credentials or non-post URLs',async()=>{
+ for(const source of ['https://t.me/GAppsLeaks','https://t.me/s/traffnews','https://t.me/GAppsLeaks/0','https://t.me/traffnews/1?url=https://evil.test','https://t.me/GAppsLeaks/1#media','https://user@t.me/traffnews/1','https://t.me:443/GAppsLeaks/1','http://t.me/traffnews/1','https://t.me.evil.test/GAppsLeaks/1'])
+  assert.equal(await resolveArticleMedia(article(source),{fetchFn:async()=>{assert.fail('Unsafe new Telegram source fetch');}}),null,source);
+});
+
 test('an opaque Telegram CDN video URL is accepted only from the exact video element',async()=>{
  const tg='https://t.me/trafficarts/1479',video='https://cdn4.telesco.pe/file/AbCdEf0123456789_opaque-video-token';
  const result=await resolveArticleMedia(article(tg),{fetchFn:async()=>html(`<div data-post="trafficarts/1479"><video src="${video}"></video></div>`)});

@@ -168,3 +168,33 @@ test('Cloudflare uses private owner login, blocks signup, and safely returns to 
  const denied = await page({ platform: 'cloudflare', accountStatus: 401 });
  assert.doesNotMatch(denied.node('loading-text').textContent, /ChatGPT/);
 });
+
+test('editor supports new official sources while keeping media and video links secondary',async()=>{
+ const ui=await page();
+ const allowed=(url,category='Магазин',supporting=false)=>vm.runInContext('urlAllowed('+JSON.stringify(url)+','+JSON.stringify(category)+','+supporting+')',ui.context);
+ for(const url of ['https://firebase.blog/posts/android-update','https://firebase.google.com/support/release-notes/android','https://source.android.com/docs/security/bulletin','https://www.apptweak.com/en/aso-blog/research'])assert.equal(allowed(url),true,url);
+ for(const url of ['https://9to5google.com/2026/11/20/play-store/','https://www.androidauthority.com/play-store-update/','https://androidweekly.net/issues/issue-754','https://t.me/GAppsLeaks/123','https://t.me/android_broadcast/123','https://www.youtube.com/watch?v=AbcDef_12-3','https://youtube.com/@AndroidDevelopers']){
+  assert.equal(allowed(url),false,url);assert.equal(allowed(url,'Магазин',true),true,url);
+ }
+ for(const url of ['https://www.gamblingcommission.gov.uk/news/article/rules','https://kansspelautoriteit.nl/nieuws/rules','https://www.mga.org.mt/rules/','https://www.gov.br/fazenda/pt-br/assuntos/noticias/rules']){
+  assert.equal(allowed(url,'Гемблінг'),true,url);assert.equal(allowed(url),false,url);
+ }
+ assert.equal(allowed('https://t.me/traffnews/123','Гемблінг'),true);
+ for(const url of ['https://www.gov.br/saude/pt-br/news','https://www.gov.br/fazenda/pt-br/%2e%2e/news','https://t.me/GAppsLeaks/123?x','https://www.youtube.com/watch?v=AbcDef_12-3&feature=share','https://9to5google.com:443/story','https://firebase.blog.evil.test/story','https://firebase.blog/\\evil'])assert.equal(allowed(url,'Гемблінг',true),false,url);
+});
+test('editor requires an official primary source for new discovery links',async()=>{
+ const ui=await page();
+ vm.runInContext(`draftId='source-fixture'; fields(editor,'day').value='2026-11-24'; fields(editor,'precision').value='day'; fields(editor,'title').value='Новина'; fields(editor,'category').value='Гемблінг'; fields(editor,'summary').value='Суть.'; fields(editor,'sourceLabel').value='Канал'; fields(editor,'source').value='https://t.me/traffnews/123'; fields(editor,'status').value='Повідомлення каналу';`,ui.context);
+ const sourceRow={querySelector:selector=>({value:selector==='[data-field=label]'?'Медіа':'https://9to5google.com/2026/11/20/report/'})};ui.node('sources').children=[sourceRow];
+ assert.throws(()=>vm.runInContext('getRecord()',ui.context),/основн|першоджерел|офіційн/i);
+ vm.runInContext("fields(editor,'source').value='https://developer.android.com/blog/posts/news';",ui.context);
+ assert.equal(vm.runInContext('getRecord().sources[0].url',ui.context),'https://9to5google.com/2026/11/20/report/');
+});
+
+test('editor cannot label original research Google-confirmed without an official Google reference',async()=>{
+ const ui=await page();
+ vm.runInContext(`draftId='research-fixture'; fields(editor,'day').value='2026-11-24'; fields(editor,'title').value='Дослідження'; fields(editor,'category').value='Магазин'; fields(editor,'summary').value='Суть.'; fields(editor,'sourceLabel').value='AppTweak'; fields(editor,'source').value='https://www.apptweak.com/en/aso-blog/research'; fields(editor,'status').value='Підтверджено Google';`,ui.context);
+ assert.throws(()=>vm.runInContext('getRecord()',ui.context),/Google|офіційн/);
+ ui.node('sources').children=[{querySelector:selector=>({value:selector==='[data-field=label]'?'Google':'https://developer.android.com/blog/posts/news'})}];
+ assert.equal(vm.runInContext('getRecord().status',ui.context),'Підтверджено Google');
+});

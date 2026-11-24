@@ -4,9 +4,12 @@ const UPDATE_KEY = "news/updates-v1.json";
 const MAX_BODY = 128 * 1024;
 const MAX_RECORDS = 1500;
 const CATEGORIES = new Set(["Політики","Публікація","Монетизація","Ігри","Магазин","API","Гемблінг"]);
-const GOOGLE_HOSTS = new Set(["blog.google","developer.android.com","android-developers.googleblog.com","android.com","www.android.com","support.google.com","developers.google.com","google.play","play.google.com","status.play.google.com"]);
-const HOSTS = new Set([...GOOGLE_HOSTS,"www.dia.govt.nz","www.legislation.gov.au","www.congressonacional.leg.br","playcity.gov.ua"]);
-const TELEGRAM_HANDLES = new Set(["trafficarts","uaff_media","affhubmedia","igaming_news","playcityukr","android_broadcast"]);
+const GOOGLE_HOSTS = new Set(["blog.google","developer.android.com","android-developers.googleblog.com","android.com","www.android.com","support.google.com","developers.google.com","google.play","play.google.com","status.play.google.com","firebase.google.com","firebase.blog","source.android.com"]);
+const REGULATORS = new Set(["www.gamblingcommission.gov.uk","kansspelautoriteit.nl","www.mga.org.mt","www.gov.br"]);
+const EDITORIAL_HOSTS = new Set(["9to5google.com","www.androidauthority.com","androidweekly.net"]);
+const HOSTS = new Set([...GOOGLE_HOSTS,...REGULATORS,...EDITORIAL_HOSTS,"www.apptweak.com","www.dia.govt.nz","www.legislation.gov.au","www.congressonacional.leg.br","playcity.gov.ua","www.youtube.com","youtube.com"]);
+const TELEGRAM_HANDLES = new Set(["trafficarts","uaff_media","affhubmedia","igaming_news","playcityukr","android_broadcast","traffnews"]);
+const VIDEO_RE = /^https:\/\/(?:www\.)?youtube\.com\/(?:@AndroidDevelopers|watch\?v=[A-Za-z0-9_-]{11})$/;
 const encode = value => JSON.stringify(value);
 const json = (value, status = 200, extra = {}) => new Response(encode(value), {
   status, headers: {"content-type":"application/json; charset=utf-8","cache-control":"no-store","x-content-type-options":"nosniff", ...extra}
@@ -16,21 +19,30 @@ const plain = (value, max, required = true) => {
   if (typeof value !== "string" || value.length > max || !value.trim() || /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(value)) throw new Error("Invalid text field");
   return value.trim();
 };
-const sourceURL = (value,category) => {
+const sourceURL = (value,category,supporting=false) => {
   const raw = plain(value, 1200);
+  if(!/^https:\/\/[a-z0-9.-]+\//i.test(raw)||/[\s\\]/.test(raw))throw new Error("Use a supported public HTTPS source");
   const url = new URL(raw);
   if(category==="Гемблінг" && raw==="https://unity.com/legal/content-policy") return raw;
   if (url.hostname === "t.me") {
-    // Validate the raw link, not just URL.pathname, which normalizes dot
-    // segments, explicit default ports, backslashes and other URL syntax.
-    const post = /^https:\/\/t\.me\/(s\/)?([a-z0-9_]+)\/([1-9][0-9]*)$/i.exec(raw);
-    if(category!=="Гемблінг" || !post || !TELEGRAM_HANDLES.has(post[2].toLowerCase())) throw new Error("Use an allowed public Telegram post for gambling news only");
-    return "https://t.me/"+(post[1]?"s/":"")+post[2].toLowerCase()+"/"+post[3];
+    // Raw validation rejects normalized paths, default ports and redirect params.
+    const post = /^https:\/\/t\.me\/(s\/)?([a-z0-9_]+)\/([1-9][0-9]*)$/i.exec(raw),handle=post?.[2].toLowerCase();
+    const legacy=category==="Гемблінг"&&TELEGRAM_HANDLES.has(handle);
+    const discovery=supporting&&(handle==="android_broadcast"||handle==="gappsleaks"&&category!=="Гемблінг");
+    if(!post||!legacy&&!discovery)throw new Error("Use an allowed public Telegram post in its supported source role");
+    return "https://t.me/"+(post[1]?"s/":"")+handle+"/"+post[3];
   }
   if (url.protocol !== "https:" || url.username || url.password || url.port || !HOSTS.has(url.hostname)) throw new Error("Use a supported official HTTPS source");
+  if(EDITORIAL_HOSTS.has(url.hostname)&&!supporting)throw new Error("Media can be an additional source only");
+  if(["www.youtube.com","youtube.com"].includes(url.hostname)&&(!supporting||!VIDEO_RE.test(raw)))throw new Error("Use an Android Developers channel or video as an additional source only");
+  if(REGULATORS.has(url.hostname)&&(category!=="Гемблінг"||url.hostname==="www.gov.br"&&!url.pathname.startsWith("/fazenda/pt-br/")))throw new Error("Use a gambling regulator's public source");
   if ((url.hostname === "support.google.com" && url.pathname.startsWith("/accounts/")) ||
       (url.hostname === "www.android.com" && url.pathname.startsWith("/intent/"))) throw new Error("Use a public source");
   return url.href;
+};
+const discoverySource = (raw,category) => {
+ const url=new URL(raw);
+ return EDITORIAL_HOSTS.has(url.hostname)||["www.youtube.com","youtube.com"].includes(url.hostname)||url.hostname==="t.me"&&(url.pathname.toLowerCase().includes("/gappsleaks/")||category!=="Гемблінг"&&url.pathname.toLowerCase().includes("/android_broadcast/"));
 };
 const validDate = date => {
   if (typeof date !== "string" || !/^20\d{2}-(0[1-9]|1[0-2])(?:-(0[1-9]|[12]\d|3[01]))?$/.test(date)) return false;
@@ -45,12 +57,15 @@ function validated(x) {
   }
   if (x.sources !== undefined) {
     if (!Array.isArray(x.sources) || x.sources.length > 8) throw new Error("Invalid additional sources");
-    out.sources=x.sources.map(entry=>({label:plain(entry?.label,95),url:sourceURL(entry?.url,x.category)}));
+    out.sources=x.sources.map(entry=>({label:plain(entry?.label,95),url:sourceURL(entry?.url,x.category,true)}));
   }
   if(new URL(out.source).hostname==="t.me" &&
      out.status!=="Повідомлення каналу" &&
      !(out.status==="Підтверджено Google" && out.sources?.some(entry=>GOOGLE_HOSTS.has(new URL(entry.url).hostname))))
     throw new Error("Telegram primary source requires a channel-report status or an official Google corroborating source");
+  const googleCorroborated=[out.source,...(out.sources||[]).map(entry=>entry.url)].some(url=>GOOGLE_HOSTS.has(new URL(url).hostname));
+  if(out.status==="Підтверджено Google"&&!googleCorroborated)throw new Error("Google confirmation requires an official Google source");
+  if(["t.me","unity.com"].includes(new URL(out.source).hostname)&&!googleCorroborated&&out.sources?.some(entry=>discoverySource(entry.url,x.category)))throw new Error("Discovery links require an official primary source or Google corroboration");
   return out;
 }
 async function readBoundedJSON(request, maxBytes) {

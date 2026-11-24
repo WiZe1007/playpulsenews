@@ -10,9 +10,12 @@ const make = (tag, text, cls) => {
 const fields = (form, name) => form.elements.namedItem(name);
 const AUTH = '/api/account';
 const ADMIN_NEWS = '/api/admin/news';
-const googleHosts = new Set(['blog.google','developer.android.com','android-developers.googleblog.com','android.com','www.android.com','support.google.com','developers.google.com','google.play','play.google.com','status.play.google.com']);
-const allowedHosts = new Set([...googleHosts,'www.dia.govt.nz','www.legislation.gov.au','www.congressonacional.leg.br','playcity.gov.ua']);
-const telegramChannels = new Set(['trafficarts','uaff_media','affhubmedia','igaming_news','playcityukr','android_broadcast']);
+const googleHosts = new Set(['blog.google','developer.android.com','android-developers.googleblog.com','android.com','www.android.com','support.google.com','developers.google.com','google.play','play.google.com','status.play.google.com','firebase.google.com','firebase.blog','source.android.com']);
+const regulatorHosts = new Set(['www.gamblingcommission.gov.uk','kansspelautoriteit.nl','www.mga.org.mt','www.gov.br']);
+const editorialHosts = new Set(['9to5google.com','www.androidauthority.com','androidweekly.net']);
+const allowedHosts = new Set([...googleHosts,...regulatorHosts,...editorialHosts,'www.apptweak.com','www.dia.govt.nz','www.legislation.gov.au','www.congressonacional.leg.br','playcity.gov.ua','www.youtube.com','youtube.com']);
+const telegramChannels = new Set(['trafficarts','uaff_media','affhubmedia','igaming_news','playcityukr','android_broadcast','traffnews']);
+const videoURL = /^https:\/\/(?:www\.)?youtube\.com\/(?:@AndroidDevelopers|watch\?v=[A-Za-z0-9_-]{11})$/;
 const gamblingCategory = 'Гемблінг';
 const dayFmt = new Intl.DateTimeFormat('uk-UA',{day:'numeric',month:'long',year:'numeric',timeZone:'UTC'});
 const monthFmt = new Intl.DateTimeFormat('uk-UA',{month:'long',year:'numeric',timeZone:'UTC'});
@@ -323,13 +326,25 @@ function telegramPost(raw) {
  const match=/^https:\/\/t\.me\/(s\/)?([A-Za-z0-9_]+)\/([1-9][0-9]*)$/i.exec(raw);
  return Boolean(match && telegramChannels.has(match[2].toLowerCase()));
 }
-function urlAllowed(raw,category) {
+function urlAllowed(raw,category,supporting=false) {
+ if(typeof raw!=='string'||raw.length>1200||!/^https:\/\/[a-z0-9.-]+\//i.test(raw)||/[\s\\]/.test(raw))return false;
  if(category===gamblingCategory && (telegramPost(raw)||raw==='https://unity.com/legal/content-policy'))return true;
  try {
   const url = new URL(raw);
+  if(url.hostname==='t.me'){
+   const post=/^https:\/\/t\.me\/(?:s\/)?([a-z0-9_]+)\/[1-9][0-9]*$/i.exec(raw),handle=post?.[1].toLowerCase();
+   return Boolean(post&&supporting&&(handle==='android_broadcast'||handle==='gappsleaks'&&category!==gamblingCategory));
+  }
   if(url.protocol!=='https:'||url.username||url.password||url.port||!allowedHosts.has(url.hostname))return false;
+  if(editorialHosts.has(url.hostname)&&!supporting)return false;
+  if(['www.youtube.com','youtube.com'].includes(url.hostname)&&(!supporting||!videoURL.test(raw)))return false;
+  if(regulatorHosts.has(url.hostname)&&(category!==gamblingCategory||url.hostname==='www.gov.br'&&!url.pathname.startsWith('/fazenda/pt-br/')))return false;
   return !(url.hostname==='support.google.com'&&url.pathname.startsWith('/accounts/')) && !(url.hostname==='www.android.com'&&url.pathname.startsWith('/intent/'));
  } catch {return false;}
+}
+function discoverySource(raw,category){
+ const url=new URL(raw);
+ return editorialHosts.has(url.hostname)||['www.youtube.com','youtube.com'].includes(url.hostname)||url.hostname==='t.me'&&(url.pathname.toLowerCase().includes('/gappsleaks/')||category!==gamblingCategory&&url.pathname.toLowerCase().includes('/android_broadcast/'));
 }
 function checkedDate(date) {
  if (!/^20\d{2}-(0[1-9]|1[0-2])(?:-(0[1-9]|[12]\d|3[01]))?$/.test(date)) return false;
@@ -356,11 +371,14 @@ function getRecord() {
   label:row.querySelector('[data-field=label]').value.trim(),
   url:row.querySelector('[data-field=url]').value.trim()
  }));
- if(sources.some(s=>!s.label||!urlAllowed(s.url,data.category)))throw new Error('Заповни назви додаткових джерел і перевір, чи дозволені ці посилання.');
+ if(sources.some(s=>!s.label||!urlAllowed(s.url,data.category,true)))throw new Error('Заповни назви додаткових джерел і перевір, чи дозволені ці посилання.');
  if(telegramPost(data.source)){
   if(!['Повідомлення каналу','Підтверджено Google'].includes(data.status))throw new Error('Для основного джерела в Telegram вкажи статус «Повідомлення каналу» або «Підтверджено Google».');
   if(data.status==='Підтверджено Google'&&!sources.some(s=>googleHosts.has(new URL(s.url).hostname)))throw new Error('Для статусу «Підтверджено Google» додай офіційне посилання Google або Android.');
  }
+ const googleCorroborated=[data.source,...sources.map(s=>s.url)].some(url=>googleHosts.has(new URL(url).hostname));
+ if(data.status==='Підтверджено Google'&&!googleCorroborated)throw new Error('Для статусу «Підтверджено Google» додай офіційне посилання Google або Android.');
+ if(['t.me','unity.com'].includes(new URL(data.source).hostname)&&!googleCorroborated&&sources.some(s=>discoverySource(s.url,data.category)))throw new Error('Для матеріалів медіа й пошукових сигналів потрібне офіційне першоджерело.');
  if(sources.length)data.sources=sources;
  if(!editing&&!draftId)draftId='manual-'+date+'-'+crypto.randomUUID();
  return {...data,id:editing?.id||draftId};

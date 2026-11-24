@@ -1,5 +1,5 @@
 const MAX_HTML=128*1024,MAX_SOURCES=2;
-const TELEGRAM_POST=/^\/(?:s\/)?(trafficarts|uaff_media|affhubmedia|igaming_news|playcityukr|android_broadcast)\/([1-9]\d*)\/?$/i;
+const TELEGRAM_POST=/^\/(?:s\/)?(trafficarts|uaff_media|affhubmedia|igaming_news|playcityukr|android_broadcast|gappsleaks|traffnews)\/([1-9]\d*)\/?$/i;
 const decode=text=>text.replace(/&(?:amp|quot|apos|lt|gt|#\d{1,7}|#x[0-9a-f]{1,6});/gi,entity=>{
  const value=entity.slice(1,-1),named={amp:'&',quot:'"',apos:"'",lt:'<',gt:'>'};
  if(Object.hasOwn(named,value.toLowerCase()))return named[value.toLowerCase()];

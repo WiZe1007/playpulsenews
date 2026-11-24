@@ -67,12 +67,35 @@ assert.equal((await post([channelReport,{...gambling,id:"telegram-secondary",sou
 assert.equal((await post([{...channelReport,id:"telegram-corroborated",status:"Підтверджено Google",sources:[{label:"Google",url:gambling.source},telegram]}])).status,200);
 for(const bad of [{...channelReport,status:undefined},{...channelReport,status:"verified"},{...channelReport,status:"Підтверджено Google",sources:[telegram]},
   {...channelReport,status:"Підтверджено Google",sources:[{label:"Regulator",url:regulatorSources[0]}]},
-  {...channelReport,category:"Ігри"},{...gambling,category:"Магазин",sources:[telegram]},
+  {...channelReport,category:"Ігри"},{...gambling,category:"Магазин",sources:[{label:"Канал",url:"https://t.me/trafficarts/19"}]},
   ...["http://t.me/trafficarts/2","https://u@t.me/trafficarts/2","https://t.me:443/trafficarts/2",
     "https://t.me/trafficarts","https://t.me/+trafficarts","https://t.me/other_channel/2","https://t.me/trafficarts/0",
     "https://t.me/trafficarts/2?","https://t.me/trafficarts/2#","https://t.me/trafficarts/2/",
     "https://t.me/jump/../trafficarts/2","https://t.me/%74rafficarts/2","https://t.me/trafficarts/1e3"].map(source=>({...channelReport,source}))])
   assert.equal((await post([bad])).status,400);
+const expandedOfficial=["https://firebase.google.com/support/release-notes/android","https://firebase.blog/posts/android-news","https://source.android.com/docs/security/bulletin/2026-11-01","https://www.apptweak.com/en/aso-blog/research"];
+for(const [index,source] of expandedOfficial.entries())assert.equal((await post([{...one,id:"expanded-primary-"+index,source}])).status,200,source);
+const expandedRegulators=["https://www.gamblingcommission.gov.uk/news/article/rules","https://kansspelautoriteit.nl/nieuws/rules","https://www.mga.org.mt/rules/","https://www.gov.br/fazenda/pt-br/assuntos/noticias/rules"];
+for(const [index,source] of expandedRegulators.entries()){
+ assert.equal((await post([{...gambling,id:"expanded-regulator-"+index,source}])).status,200,source);
+ assert.equal((await post([{...one,source}])).status,400,source);
+}
+const discoveryURLs=["https://9to5google.com/2026/11/20/report/","https://www.androidauthority.com/play-store-update/","https://androidweekly.net/issues/issue-754","https://t.me/GAppsLeaks/123","https://t.me/android_broadcast/123","https://www.youtube.com/watch?v=AbcDef_12-3","https://youtube.com/@AndroidDevelopers"];
+const expandedSources=discoveryURLs.map((url,index)=>({label:"Додаткове джерело "+index,url}));
+assert.equal((await post([{...one,id:"expanded-supporting",sources:expandedSources}])).status,200);
+for(const source of discoveryURLs)assert.equal((await post([{...one,source}])).status,400,source);
+const traffnews={...channelReport,id:"traffnews-report",source:"https://t.me/traffnews/123"};
+assert.equal((await post([traffnews])).status,200);
+assert.equal((await post([{...traffnews,status:"Підтверджено Google",sources:[{label:"Firebase",url:"https://firebase.blog/posts/android-news"}]}])).status,200);
+for(const bad of [{...traffnews,status:undefined},{...traffnews,status:"Підтверджено Google",sources:[{label:"AppTweak",url:expandedOfficial[3]}]},
+ {...traffnews,sources:[expandedSources[0]]},{...gambling,sources:[{label:"Знахідка",url:"https://t.me/GAppsLeaks/123"}]},
+ ...["https://www.gov.br/saude/pt-br/news","https://www.gov.br/fazenda/pt-br/%2e%2e/news","https://www.gov.br/fazenda/pt-br.evil/news"].map(source=>({...gambling,source})),
+ ...["https://www.youtube.com/watch?v=short","https://www.youtube.com/watch?v=AbcDef_12-3&x=1","https://www.youtube.com/watch?v=AbcDef_12-3#","https://t.me/GAppsLeaks/123?x","https://t.me/traffnews/123#","https://9to5google.com:443/story","https://firebase.blog.evil.test/story","https://firebase.blog/\\evil"].map(url=>({...one,sources:[{label:"Unsafe",url}]}))])
+ assert.equal((await post([bad])).status,400,JSON.stringify(bad));
+assert.equal((await post([{...one,source:expandedOfficial[3],status:"Підтверджено Google"}])).status,400);
+assert.equal((await post([{...one,id:"research-google-reference",source:expandedOfficial[3],status:"Підтверджено Google",sources:[{label:"Google",url:one.source}]}])).status,200);
+const expandedRead=await (await req("/news.json")).json();
+assert.deepEqual(expandedRead.find(item=>item.id==="expanded-supporting").sources.map(item=>item.url),["https://9to5google.com/2026/11/20/report/","https://www.androidauthority.com/play-store-update/","https://androidweekly.net/issues/issue-754","https://t.me/gappsleaks/123","https://t.me/android_broadcast/123","https://www.youtube.com/watch?v=AbcDef_12-3","https://youtube.com/@AndroidDevelopers"]);
 const news=await (await req("/news.json")).json();
 assert.equal(news.find(i=>i.id===channelReport.id)?.source,"https://t.me/s/uaff_media/204");
 assert.equal(news.find(i=>i.id===gambling.id)?.category,"Гемблінг");

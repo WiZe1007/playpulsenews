@@ -3,23 +3,39 @@ import {formatDigest,articleSiteURL} from './presentation.mjs';
 export const SITE='https://play-pulse-news.nemofresh.chatgpt.site';
 export const CATEGORIES=['Політики','Публікація','Монетизація','Ігри','Магазин','API','Гемблінг'];
 const RU=['Политики','Публикация','Монетизация','Игры','Магазин','API','Гемблинг'];
-const SAFE_HOSTS=new Set(['blog.google','developer.android.com','android-developers.googleblog.com','android.com','www.android.com','support.google.com','developers.google.com','google.play','play.google.com','status.play.google.com','www.dia.govt.nz','www.legislation.gov.au','www.congressonacional.leg.br','playcity.gov.ua','t.me','unity.com']);
-const TG_RE=/^https:\/\/t\.me\/(?:s\/)?(?:trafficarts|uaff_media|affhubmedia|igaming_news|playcityukr|android_broadcast)\/[1-9][0-9]*$/i;
+const GOOGLE_HOSTS=new Set(['blog.google','developer.android.com','android-developers.googleblog.com','android.com','www.android.com','support.google.com','developers.google.com','google.play','play.google.com','status.play.google.com','firebase.google.com','firebase.blog','source.android.com']);
+const REGULATORS=new Set(['www.gamblingcommission.gov.uk','kansspelautoriteit.nl','www.mga.org.mt','www.gov.br']);
+const EDITORIAL_HOSTS=new Set(['9to5google.com','www.androidauthority.com','androidweekly.net']);
+const SAFE_HOSTS=new Set([...GOOGLE_HOSTS,...REGULATORS,...EDITORIAL_HOSTS,'www.apptweak.com','www.dia.govt.nz','www.legislation.gov.au','www.congressonacional.leg.br','playcity.gov.ua','t.me','unity.com','www.youtube.com','youtube.com']);
+const TELEGRAM_CHANNELS=new Set(['trafficarts','uaff_media','affhubmedia','igaming_news','playcityukr','android_broadcast','traffnews']);
+const VIDEO_RE=/^https:\/\/(?:www\.)?youtube\.com\/(?:@AndroidDevelopers|watch\?v=[A-Za-z0-9_-]{11})$/;
 const day=/^20\d\d-(0[1-9]|1[0-2])(?:-(0[1-9]|[12]\d|3[01]))?$/;
 const cut=(s,n)=>Array.from(s).slice(0,n).join('');
 const value=(s,n)=>typeof s==='string'?cut(s.trim(),n):'';
 const completeValue=(s,n)=>typeof s==='string'?(s.trim().length<=n?s.trim():null):'';
 export const escapeHTML=s=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-export function safeSource(raw,category) {
+export function safeSource(raw,category,supporting=false) {
   if(typeof raw!=='string'||raw.length>1200||!/^https:\/\/[a-z0-9.-]+\//i.test(raw)||/[\s\\]/.test(raw))return null;
   try {
     const u=new URL(raw);
     if(u.protocol!=='https:'||u.username||u.password||u.port||!SAFE_HOSTS.has(u.hostname))return null;
-    if(u.hostname==='t.me'&&(category!=='Гемблінг'||!TG_RE.test(raw)))return null;
+    if(u.hostname==='t.me'){
+      const post=/^https:\/\/t\.me\/(?:s\/)?([a-z0-9_]+)\/[1-9][0-9]*$/i.exec(raw),handle=post?.[1].toLowerCase();
+      const legacy=category==='Гемблінг'&&TELEGRAM_CHANNELS.has(handle);
+      const discovery=supporting&&(handle==='android_broadcast'||handle==='gappsleaks'&&category!=='Гемблінг');
+      if(!post||!legacy&&!discovery)return null;
+    }
+    if(EDITORIAL_HOSTS.has(u.hostname)&&!supporting)return null;
+    if(['www.youtube.com','youtube.com'].includes(u.hostname)&&(!supporting||!VIDEO_RE.test(raw)))return null;
+    if(REGULATORS.has(u.hostname)&&(category!=='Гемблінг'||u.hostname==='www.gov.br'&&!u.pathname.startsWith('/fazenda/pt-br/')))return null;
     if(u.hostname==='unity.com'&&(category!=='Гемблінг'||raw!=='https://unity.com/legal/content-policy'))return null;
     if((u.hostname==='support.google.com'&&u.pathname.startsWith('/accounts/'))||(u.hostname==='www.android.com'&&u.pathname.startsWith('/intent/')))return null;
     return u.href;
   }catch{return null;}
+}
+function discoverySource(raw,category){
+  const url=new URL(raw);
+  return EDITORIAL_HOSTS.has(url.hostname)||['www.youtube.com','youtube.com'].includes(url.hostname)||url.hostname==='t.me'&&(url.pathname.toLowerCase().includes('/gappsleaks/')||category!=='Гемблінг'&&url.pathname.toLowerCase().includes('/android_broadcast/'));
 }
 const CANONICAL=SITE+'/news.json';
 function httpsURL(raw) {
@@ -56,9 +72,13 @@ export function parseFeed(data) {
     if(!title||!summary||detail===null||!url)continue;
     const links=[{label:value(x.sourceLabel,95)||'Оригинал',url}];
     for(const a of (Array.isArray(x.sources)?x.sources.slice(0,8):[])){
-      const u=safeSource(a?.url,x.category);
+      const u=safeSource(a?.url,x.category,true);
       if(u&&!links.some(z=>z.url===u))links.push({label:value(a.label,95)||'Источник',url:u});
     }
+    const primaryHost=new URL(url).hostname,googleCorroborated=links.some(link=>GOOGLE_HOSTS.has(new URL(link.url).hostname));
+    if(primaryHost==='t.me'&&x.status!=='Повідомлення каналу'&&!(x.status==='Підтверджено Google'&&googleCorroborated))continue;
+    if(x.status==='Підтверджено Google'&&!googleCorroborated)continue;
+    if(['t.me','unity.com'].includes(primaryHost)&&!googleCorroborated&&links.slice(1).some(link=>discoverySource(link.url,x.category)))continue;
     result.set(x.id,{id:x.id,date:x.date,category:x.category,title,summary,detail,status:value(x.status,72),links});
   }
   if(data.length&&!result.size)throw Error('Лента пока недоступна.');
