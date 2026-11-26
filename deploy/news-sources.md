@@ -31,6 +31,14 @@
 | [Гемблинг / iGaming (Партнеркин)](https://t.me/s/thepartnerkin_gambl) | Галузеві дайджести | Перейти до автора дослідження чи рішення |
 | [CPA.RIP](https://t.me/s/cparip) | Мобільна реклама та рекламне шахрайство на Android | Перевірити первинний звіт або анонс платформи |
 | [StartAndroid](https://t.me/s/startandroid) | Android Studio, Gradle, інструменти розробника | Перевірити дату і суттєві зміни в офіційних нотатках до релізу |
+| [BlackHatWorld, Mobile Marketing](https://www.blackhatworld.com/forums/mobile-marketing.158/) | Мобільна дистрибуція та модерація | Перевіряй згадані зміни за офіційним повідомленням платформи |
+| [BlackHatWorld, тег gambling](https://www.blackhatworld.com/tags/gambling/) | Міжнародні зміни для мобільного гемблінгу | Відбирай теми з конкретним впливом на Android-видавців, пропускай рекламу й пропозиції обходу правил |
+| [GPWA](https://www.gpwa.org/forum/) | Обговорення в індустрії iGaming | Перевіряй міжринкові зміни за документом регулятора або платформи |
+| [iGaming Business](https://igamingbusiness.com/) | Галузеві новини мобільного гемблінгу | Переходь від матеріалу редакції до датованого першоджерела |
+| [r/GooglePlayDeveloper](https://www.reddit.com/r/GooglePlayDeveloper/new/) | Практика публікації й перевірки застосунків | Відокремлюй випадок одного розробника від підтвердженої зміни Google Play |
+| [r/androiddev](https://www.reddit.com/r/androiddev/new/) | Інструменти Android і SDK | Звіряй версію, дату та зміст із журналом релізу |
+| [Android Developers у X](https://x.com/AndroidDev) | Анонси для Android-розробників | Переходь до технічного анонсу або документації Google |
+| [Google Play у X](https://x.com/GooglePlay) | Анонси магазину | Шукай підтверджені зміни для видавців, пропускай акції ігор |
 
 Попередня база зберігається: Google Play Blog, Android Developers Blog, оголошення й строки політик Play Console, Google Play Business, сторінка стану Google Play, release notes Play Billing, Play Integrity, Play Age Signals, Play Games і Android developer verification. Національні регулятори доступні як джерела історичних матеріалів; нові локальні рішення пропускай.
 
