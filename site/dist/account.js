@@ -137,7 +137,7 @@ function feedReturnPath(raw) {
   if(url.origin!=='https://play-pulse.invalid'||url.pathname!=='/'||url.hash&&!['#news'].includes(url.hash))return null;
   for(const key of url.searchParams.keys())if(!['article','topic'].includes(key))return null;
   const ids=url.searchParams.getAll('article'),topics=url.searchParams.getAll('topic');
-  if(ids.length>1||topics.length>1||ids.length&&!/^[a-z0-9][a-z0-9-]{0,95}$/.test(ids[0])||topics.length&&!['policies','publishing','monetization','games','store','api','gambling'].includes(topics[0]))return null;
+  if(ids.length>1||topics.length>1||ids.length&&!/^[a-z0-9][a-z0-9-]{0,95}$/.test(ids[0])||topics.length&&!['policies','publishing','monetization','games','store','api','gambling','play-console-practice'].includes(topics[0]))return null;
   return url.pathname+url.search+url.hash;
  } catch {return null;}
 }

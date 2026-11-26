@@ -1,8 +1,8 @@
 import {createHash} from 'node:crypto';
 import {formatDigest,articleSiteURL} from './presentation.mjs';
 export const SITE='https://play-pulse-news.nemofresh.chatgpt.site';
-export const CATEGORIES=['Політики','Публікація','Монетизація','Ігри','Магазин','API','Гемблінг'];
-const RU=['Политики','Публикация','Монетизация','Игры','Магазин','API','Гемблинг'];
+export const CATEGORIES=['Політики','Публікація','Монетизація','Ігри','Магазин','API','Гемблінг','Практика Play Console'];
+const RU=['Политики','Публикация','Монетизация','Игры','Магазин','API','Гемблинг','Практика Play Console'];
 const GOOGLE_HOSTS=new Set(['blog.google','developer.android.com','android-developers.googleblog.com','android.com','www.android.com','support.google.com','developers.google.com','google.play','play.google.com','status.play.google.com','firebase.google.com','firebase.blog','source.android.com']);
 const REGULATORS=new Set(['www.gamblingcommission.gov.uk','www.mga.org.mt','www.gov.br']);
 const EDITORIAL_HOSTS=new Set(['9to5google.com','www.androidauthority.com','androidweekly.net']);
@@ -70,7 +70,7 @@ export function config(e) {
 const key=(s)=>s.normalize('NFKC');
 const articleKey=({id})=>createHash('sha256').update(id).digest('hex').slice(0,18);
 export function articleForAction(items,action){
-  const match=/^item:([0-9a-f]{18}):(all|archive|[0-6]):(\d{1,3})$/.exec(action);
+  const match=/^item:([0-9a-f]{18}):(all|archive|[0-7]):(\d{1,3})$/.exec(action);
   return match?items.find(item=>articleKey(item)===match[1])||null:null;
 }
 export function parseFeed(data) {
@@ -101,14 +101,14 @@ const home=()=>[callback('⌂ Главное меню','home')];
 export function screen(items, action='home', siteURL=SITE) {
   if(action==='home')return {text:'<b>✦ PLAY PULSE</b>\n\nНовости Google Play и Play Console. Выберите раздел:',keyboard:[[callback('⚡ Последние новости','list:all:0')],[callback('🗂 Категории','cats'),callback('🎰 Гемблинг','list:6:0')],[callback('🗄 Архив','list:archive:0')],site(siteURL)]};
   if(action==='cats')return {text:'<b>🗂 Категории</b>\n\nВыберите тему.',keyboard:[...RU.map((c,i)=>[callback(c,'list:'+i+':0')]),home()]};
-  const itemMatch=/^item:([0-9a-f]{18}):(all|archive|[0-6]):(\d{1,3})$/.exec(action);
+  const itemMatch=/^item:([0-9a-f]{18}):(all|archive|[0-7]):(\d{1,3})$/.exec(action);
   if(itemMatch){
     const [,index,cat,pg]=itemMatch;
     const x=items.find(i=>articleKey(i)===index);
     if(!x)return {...screen([], 'home',siteURL),text:'Эта карточка уже обновилась. Откройте список снова.'};
     return {text:formatDigest([x],{siteURL})[0].payload.text,keyboard:[[callback('‹ К списку','list:'+cat+':'+pg)],site(articleSiteURL(siteURL,x.id)),home()]};
   }
-  const l=/^list:(all|archive|[0-6]):(\d{1,3})$/.exec(action);
+  const l=/^list:(all|archive|[0-7]):(\d{1,3})$/.exec(action);
   if(!l)return screen([], 'home',siteURL);
   const [,cat,pg]=l;
   const results=items.map((x,i)=>({x,i})).filter(({x})=>cat==='all'||cat==='archive'||x.category===CATEGORIES[Number(cat)]);

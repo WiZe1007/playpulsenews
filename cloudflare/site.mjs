@@ -5,7 +5,7 @@ const NEWS_KEY='news/updates-v1.json';
 const PUBLIC_ASSETS=new Set(['/account.html','/account.css','/account.js','/mark.svg','/assets/scene-5.webp']);
 const ACCOUNT_PATHS=new Set(['/api/account','/api/account/setup','/api/account/login','/api/account/logout','/api/account/password']);
 const PASSWORD_PATHS=new Set(['/api/account/setup','/api/account/login','/api/account/password']);
-const CATEGORIES=new Set(['Політики','Публікація','Монетизація','Ігри','Магазин','API','Гемблінг']);
+const CATEGORIES=new Set(['Політики','Публікація','Монетизація','Ігри','Магазин','API','Гемблінг','Практика Play Console']);
 const encoder=new TextEncoder();
 const json=(value,status=200)=>new Response(JSON.stringify(value),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff'}});
 const deny=(status=401)=>json({ok:false,error:status===503?'Сервіс тимчасово недоступний.':'Потрібен дозволений доступ.'},status);

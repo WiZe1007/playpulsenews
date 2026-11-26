@@ -74,3 +74,12 @@ test('story navigation keeps the URL, dialog and browser history aligned',async(
  assert.equal(new URL(ui.location.href).searchParams.has('article'),false);
  assert.equal(ui.node('dialog').open,false);
 });
+
+test('the practice topic link opens only practical guides',async()=>{
+ const ui=await page({path:'/?topic=play-console-practice#news',items:[row('other'),row('review','Практика Play Console')]});
+ assert.equal(ui.node('view-title').textContent,'Практика Play Console');
+ const buttons=ui.node('list').querySelectorAll('.open-story');
+ assert.equal(buttons.length,1);
+ buttons[0].onclick();
+ assert.equal(ui.node('article-title').textContent,'Новина review');
+});

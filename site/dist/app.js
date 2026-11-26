@@ -1,8 +1,8 @@
 'use strict';
 const $=id=>document.getElementById(id);
 const gambling='Гемблінг';
-const cats=['Усі новини','Політики','Публікація','Монетизація','Ігри','Магазин','API',gambling];
-const slugs=['','policies','publishing','monetization','games','store','api','gambling'];
+const cats=['Усі новини','Політики','Публікація','Монетизація','Ігри','Магазин','API',gambling,'Практика Play Console'];
+const slugs=['','policies','publishing','monetization','games','store','api','gambling','play-console-practice'];
 const articleID=/^[a-z0-9][a-z0-9-]{0,95}$/;
 function categoryFromURL(){const slug=new URL(location.href).searchParams.get('topic')||'';return cats[slugs.indexOf(slug)]||cats[0];}
 function articleFromURL(){const ids=new URL(location.href).searchParams.getAll('article');return !ids.length?undefined:ids.length===1&&articleID.test(ids[0])?ids[0]:null;}
@@ -14,8 +14,8 @@ function pushCategory(next){
  if(url.href!==location.href)history.pushState(null,'',url);
 }
 const pageSize=12;
-const topicDescriptions=['Правила й вимоги до застосунків','Релізи, перевірки та Play Console','Платежі, підписки й комісії','Ігрова екосистема та програми Play','Функції магазину та новинки','Інструменти й бібліотеки','Правила Google Play для азартних застосунків Android'];
-const topicPaths=['M12 3l7 3v6c0 4-4 7-7 9-3-2-7-5-7-9V6z M9 12l2 2 4-4','M5 4h8l4 4v12H5z M13 4v5h5 M8 14h6 M8 17h6','M4 7h16v11H4z M4 10h16 M8 15h3','M8 8h8c4 0 6 8 3 9-2 1-4-2-5-2h-4c-1 0-3 3-5 2-3-1-1-9 3-9z M7 12h4 M9 10v4 M15 11h.01 M17 13h.01','M4 8h16l-1 12H5z M8 9V7a4 4 0 0 1 8 0v2','M8 7l-5 5 5 5 M16 7l5 5-5 5 M14 5l-4 14','M12 3l7 3v6c0 4-4 7-7 9-3-2-7-5-7-9V6z M12 8v5 M12 16h.01'];
+const topicDescriptions=['Правила й вимоги до застосунків','Релізи, перевірки та Play Console','Платежі, підписки й комісії','Ігрова екосистема та програми Play','Функції магазину та новинки','Інструменти й бібліотеки','Правила Google Play для азартних застосунків Android','Модерація, відхилення та випуск застосунків'];
+const topicPaths=['M12 3l7 3v6c0 4-4 7-7 9-3-2-7-5-7-9V6z M9 12l2 2 4-4','M5 4h8l4 4v12H5z M13 4v5h5 M8 14h6 M8 17h6','M4 7h16v11H4z M4 10h16 M8 15h3','M8 8h8c4 0 6 8 3 9-2 1-4-2-5-2h-4c-1 0-3 3-5 2-3-1-1-9 3-9z M7 12h4 M9 10v4 M15 11h.01 M17 13h.01','M4 8h16l-1 12H5z M8 9V7a4 4 0 0 1 8 0v2','M8 7l-5 5 5 5 M16 7l5 5-5 5 M14 5l-4 14','M12 3l7 3v6c0 4-4 7-7 9-3-2-7-5-7-9V6z M12 8v5 M12 16h.01','M5 3h14v18H5z M8 8l1 1 2-2 M12 8h4 M8 14l1 1 2-2 M12 14h4'];
 const ns='http://www.w3.org/2000/svg';
 const el=(tag,cls,value)=>{const n=document.createElement(tag); if(cls)n.className=cls; if(value)n.textContent=value;return n;};
 const dayFmt=new Intl.DateTimeFormat('uk-UA',{day:'numeric',month:'long',year:'numeric',timeZone:'UTC'});

@@ -21,7 +21,7 @@ test('feed parsing and filters, Telegram allowlist, escaped HTML and keyboards',
   rows.push({...row(15),date:'2026-02-31'}, {...row(16),source:'https://developer.android.com.evil.test/news'});
   const items=parseFeed(rows);
   assert.equal(items.length,14);assert.equal(items[0].date,'2026-11');
-  assert.equal(screen(items,'cats').keyboard.length,8);
+  assert.equal(screen(items,'cats').keyboard.length,CATEGORIES.length+1);
   const newest=screen(items,'list:all:0');
   assert.match(newest.text,/&lt;b&gt;News/);
   assert.ok(newest.keyboard.flat().some(x=>x.callback_data==='list:all:1'));
@@ -140,4 +140,15 @@ test('original research is not labeled Google-confirmed without a real Google re
 
 test("rejects retired and out-of-scope sources",()=>{
  for(const url of ['https://developer.samsung.com/sdp/news/en/2026/10/28/update','https://github.com/other/bundletool/releases/tag/1.0', 'https://github.com/google/bundletool/issues/1', 'https://www.adjust.com/blog/tiktok-attribution-source-optimization/?redirect=1','https://www.adjust.com/blog/other/','https://appfigures.com/account', 'https://kansspelautoriteit.nl/nieuws/rules'])assert.equal(safeSource(url,"Гемблінг",true),null,url);
+});
+
+test('practice articles open from their category in the Telegram menu',()=>{
+  const category='Практика Play Console';
+  const items=parseFeed([{...row(),category}]);
+  const button=screen(items,'cats').keyboard.flat().find(entry=>entry.text===category);
+  assert.ok(button);
+  const list=screen(items,button.callback_data);
+  assert.match(list.text,/&lt;b&gt;News/);
+  const article=screen(items,list.keyboard[0][0].callback_data);
+  assert.ok(article.text.includes(category));
 });

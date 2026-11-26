@@ -3,7 +3,7 @@
 const UPDATE_KEY = "news/updates-v1.json";
 const MAX_BODY = 128 * 1024;
 const MAX_RECORDS = 1500;
-const CATEGORIES = new Set(["Політики","Публікація","Монетизація","Ігри","Магазин","API","Гемблінг"]);
+const CATEGORIES = new Set(["Політики","Публікація","Монетизація","Ігри","Магазин","API","Гемблінг","Практика Play Console"]);
 const GOOGLE_HOSTS = new Set(["blog.google","developer.android.com","android-developers.googleblog.com","android.com","www.android.com","support.google.com","developers.google.com","google.play","play.google.com","status.play.google.com","firebase.google.com","firebase.blog","source.android.com"]);
 const REGULATORS = new Set(["www.gamblingcommission.gov.uk","www.mga.org.mt","www.gov.br"]);
 const EDITORIAL_HOSTS = new Set(["9to5google.com","www.androidauthority.com","androidweekly.net"]);

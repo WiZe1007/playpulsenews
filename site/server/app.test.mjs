@@ -58,6 +58,7 @@ test('private article links retain only validated feed navigation through owner 
   for(const [path,location] of [
     ['/?article=retained-news','/account.html?next=%2F%3Farticle%3Dretained-news%23news'],
     ['/?topic=gambling&article=retained-news','/account.html?next=%2F%3Farticle%3Dretained-news%26topic%3Dgambling%23news'],
+    ['/?topic=play-console-practice','/account.html?next=%2F%3Ftopic%3Dplay-console-practice%23news'],
     ['/?topic=gambling','/account.html?next=%2F%3Ftopic%3Dgambling%23news']
   ]){
     const target=await f.call(path,{headers:{host:'attacker.invalid'}});

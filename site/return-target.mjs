@@ -1,5 +1,5 @@
 const ARTICLE=/^[a-z0-9][a-z0-9-]{0,95}$/;
-const TOPICS=new Set(['policies','publishing','monetization','games','store','api','gambling']);
+const TOPICS=new Set(['policies','publishing','monetization','games','store','api','gambling','play-console-practice']);
 
 // Reflect only the small public feed-navigation contract, never arbitrary
 // query parameters or a caller-provided destination origin.
