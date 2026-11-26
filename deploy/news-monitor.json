@@ -22,12 +22,12 @@
     ]
   },
   "editorial_style": "Лаконічний професійний",
-  "prompt_updated_on": "2026-11-24",
+  "prompt_updated_on": "2026-11-26",
   "legacy_chat_digest": "active; private ChatGPT summary only; site writes disabled",
   "sources_file": "deploy/news-sources.md",
-  "additional_source_targets": 16,
-  "sources_expanded_on": "2026-11-24",
-  "cloud_prompt_matches_repository": false,
+  "additional_source_targets": 20,
+  "sources_expanded_on": "2026-11-26",
+  "cloud_prompt_matches_repository": true,
   "source_policy_deployments": {
     "sites_version": 12,
     "sites_source_commit": "36a950fd950fc1f71d7cfc99eb8b83edfffbabf5",
