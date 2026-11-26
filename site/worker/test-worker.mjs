@@ -73,14 +73,14 @@ for(const bad of [{...channelReport,status:undefined},{...channelReport,status:"
     "https://t.me/trafficarts/2?","https://t.me/trafficarts/2#","https://t.me/trafficarts/2/",
     "https://t.me/jump/../trafficarts/2","https://t.me/%74rafficarts/2","https://t.me/trafficarts/1e3"].map(source=>({...channelReport,source}))])
   assert.equal((await post([bad])).status,400);
-const expandedOfficial=["https://firebase.google.com/support/release-notes/android","https://firebase.blog/posts/android-news","https://source.android.com/docs/security/bulletin/2026-11-01","https://www.apptweak.com/en/aso-blog/research"];
+const expandedOfficial=["https://firebase.google.com/support/release-notes/android","https://firebase.blog/posts/android-news","https://source.android.com/docs/security/bulletin/2026-11-01","https://www.apptweak.com/en/aso-blog/research",'https://github.com/google/bundletool/releases/tag/1.18.3','https://github.com/RevenueCat/purchases-android/releases/tag/11.0.0','https://developer.samsung.com/sdp/news/en/2026/10/28/update','https://digital-markets-act.ec.europa.eu/decision_en','https://appfigures.com/resources/insights/20261125-report'];
 for(const [index,source] of expandedOfficial.entries())assert.equal((await post([{...one,id:"expanded-primary-"+index,source}])).status,200,source);
-const expandedRegulators=["https://www.gamblingcommission.gov.uk/news/article/rules","https://kansspelautoriteit.nl/nieuws/rules","https://www.mga.org.mt/rules/","https://www.gov.br/fazenda/pt-br/assuntos/noticias/rules"];
+const expandedRegulators=["https://www.gamblingcommission.gov.uk/news/article/rules","https://www.mga.org.mt/rules/","https://www.gov.br/fazenda/pt-br/assuntos/noticias/rules"];
 for(const [index,source] of expandedRegulators.entries()){
  assert.equal((await post([{...gambling,id:"expanded-regulator-"+index,source}])).status,200,source);
  assert.equal((await post([{...one,source}])).status,400,source);
 }
-const discoveryURLs=["https://9to5google.com/2026/11/20/report/","https://www.androidauthority.com/play-store-update/","https://androidweekly.net/issues/issue-754","https://t.me/GAppsLeaks/123","https://t.me/android_broadcast/123","https://www.youtube.com/watch?v=AbcDef_12-3","https://youtube.com/@AndroidDevelopers"];
+const discoveryURLs=["https://9to5google.com/2026/11/20/report/","https://www.androidauthority.com/play-store-update/","https://androidweekly.net/issues/issue-754","https://t.me/GAppsLeaks/123","https://t.me/AndroidDevEU/10","https://t.me/android_broadcast/123","https://www.youtube.com/watch?v=AbcDef_12-3","https://youtube.com/@AndroidDevelopers"];
 const expandedSources=discoveryURLs.map((url,index)=>({label:"Додаткове джерело "+index,url}));
 assert.equal((await post([{...one,id:"expanded-supporting",sources:expandedSources}])).status,200);
 for(const source of discoveryURLs)assert.equal((await post([{...one,source}])).status,400,source);
@@ -95,10 +95,15 @@ for(const bad of [{...traffnews,status:undefined},{...traffnews,status:"Підт
 assert.equal((await post([{...one,source:expandedOfficial[3],status:"Підтверджено Google"}])).status,400);
 assert.equal((await post([{...one,id:"research-google-reference",source:expandedOfficial[3],status:"Підтверджено Google",sources:[{label:"Google",url:one.source}]}])).status,200);
 const expandedRead=await (await req("/news.json")).json();
-assert.deepEqual(expandedRead.find(item=>item.id==="expanded-supporting").sources.map(item=>item.url),["https://9to5google.com/2026/11/20/report/","https://www.androidauthority.com/play-store-update/","https://androidweekly.net/issues/issue-754","https://t.me/gappsleaks/123","https://t.me/android_broadcast/123","https://www.youtube.com/watch?v=AbcDef_12-3","https://youtube.com/@AndroidDevelopers"]);
+assert.deepEqual(expandedRead.find(item=>item.id==="expanded-supporting").sources.map(item=>item.url),["https://9to5google.com/2026/11/20/report/","https://www.androidauthority.com/play-store-update/","https://androidweekly.net/issues/issue-754","https://t.me/gappsleaks/123","https://t.me/androiddeveu/10","https://t.me/android_broadcast/123","https://www.youtube.com/watch?v=AbcDef_12-3","https://youtube.com/@AndroidDevelopers"]);
 const news=await (await req("/news.json")).json();
 assert.equal(news.find(i=>i.id===channelReport.id)?.source,"https://t.me/s/uaff_media/204");
 assert.equal(news.find(i=>i.id===gambling.id)?.category,"Гемблінг");
 for(const id of [one.id,"first","second"]) assert.ok(news.some(i=>i.id===id));
 assert.equal((await app.fetch(new Request(host+"/api/news",{method:"POST",body:"[]"}))).status,503);
 console.log("Worker checked: asset serving/ranges, seed merge, bounded validation, same-origin policy, repeat/concurrent updates, missing R2.");
+
+for(const source of ['https://github.com/other/bundletool/releases/tag/1.0', 'https://github.com/google/bundletool/issues/1', 'https://appfigures.com/account', 'https://kansspelautoriteit.nl/nieuws/rules'])assert.equal((await post([{...gambling,source}])).status,400,source);
+const archivedDutch={...gambling,id:"retired-archive",source:"https://kansspelautoriteit.nl/nieuws/rules"};
+const archiveApp=makeApp({},[one,archivedDutch]);
+assert.deepEqual((await (await archiveApp.fetch(new Request(host+"/news.json"),{})).json()).map(x=>x.id),[one.id]);

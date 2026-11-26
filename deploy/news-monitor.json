@@ -27,10 +27,11 @@
   "sources_file": "deploy/news-sources.md",
   "additional_source_targets": 16,
   "sources_expanded_on": "2026-11-24",
-  "cloud_prompt_matches_repository": true,
+  "cloud_prompt_matches_repository": false,
   "source_policy_deployments": {
-    "sites_version": 11,
-    "sites_source_commit": "726d4c973640527f0e8ecf5f74ba16b11540fa1a",
-    "cloudflare_version": "ade6210c-9485-4a2d-9000-3faea5fae4f9"
-  }
+    "sites_version": 12,
+    "sites_source_commit": "36a950fd950fc1f71d7cfc99eb8b83edfffbabf5",
+    "cloudflare_version": "d476e077-b57d-48a5-a2ae-eccbd19bd3d2"
+  },
+  "prepared_prompt_date": "2026-11-26"
 }

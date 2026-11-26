@@ -100,14 +100,14 @@ test('article lookup and selected private cards preserve full content through Te
 });
 
 test('expanded official and original research sources preserve complete articles and source labels',()=>{
- const urls=['https://firebase.google.com/support/release-notes/android','https://firebase.blog/posts/android-update','https://source.android.com/docs/security/bulletin/2026-11-01','https://www.apptweak.com/en/aso-blog/google-play-research'];
+ const urls=['https://firebase.google.com/support/release-notes/android','https://firebase.blog/posts/android-update','https://source.android.com/docs/security/bulletin/2026-11-01','https://www.apptweak.com/en/aso-blog/google-play-research','https://github.com/google/bundletool/releases/tag/1.18.3','https://github.com/RevenueCat/purchases-android/releases/tag/11.0.0','https://developer.samsung.com/sdp/news/en/2026/10/28/update','https://digital-markets-act.ec.europa.eu/decision_en','https://appfigures.com/resources/insights/20261125-report'];
  for(const [i,source] of urls.entries()){
   const data={...row(1),id:'expanded-primary-'+i,source,summary:'Повний виклад новини.',detail:'Усі важливі подробиці.',sourceLabel:'Перевірене джерело'};
   const [item]=parseFeed([data]);assert.equal(item.summary,data.summary);assert.equal(item.detail,data.detail);assert.equal(item.links[0].url,source);assert.equal(item.links[0].label,data.sourceLabel);
  }
 });
 test('editorial, Telegram discovery and Android Developers video links survive as supporting sources only',()=>{
- const urls=['https://9to5google.com/2026/11/20/play-store-update/','https://www.androidauthority.com/play-store-update-123456/','https://androidweekly.net/issues/issue-754','https://t.me/GAppsLeaks/1234','https://t.me/android_broadcast/1234','https://www.youtube.com/watch?v=AbcDef_12-3','https://youtube.com/@AndroidDevelopers'];
+ const urls=['https://9to5google.com/2026/11/20/play-store-update/','https://www.androidauthority.com/play-store-update-123456/','https://androidweekly.net/issues/issue-754','https://t.me/GAppsLeaks/1234','https://t.me/AndroidDevEU/10','https://t.me/android_broadcast/1234','https://www.youtube.com/watch?v=AbcDef_12-3','https://youtube.com/@AndroidDevelopers'];
  const [item]=parseFeed([{...row(1),sources:urls.map((url,i)=>({label:'Підтвердження '+i,url}))}]);
  assert.deepEqual(item.links.slice(1).map(link=>link.url),urls);
  const view=screen([item],screen([item],'list:all:0').keyboard[0][0].callback_data);
@@ -115,7 +115,7 @@ test('editorial, Telegram discovery and Android Developers video links survive a
  for(const source of urls){assert.equal(safeSource(source,'Магазин'),null,source);assert.throws(()=>parseFeed([{...row(1),source}]));}
 });
 test('new regulator sources are confined to gambling and Brazil Fazenda public paths',()=>{
- const urls=['https://www.gamblingcommission.gov.uk/news/article/new-rules','https://kansspelautoriteit.nl/nieuws/new-rules','https://www.mga.org.mt/new-rules/','https://www.gov.br/fazenda/pt-br/assuntos/noticias/2026/novembro/new-rules'];
+ const urls=['https://www.gamblingcommission.gov.uk/news/article/new-rules','https://www.mga.org.mt/new-rules/','https://www.gov.br/fazenda/pt-br/assuntos/noticias/2026/novembro/new-rules'];
  for(const source of urls){assert.equal(safeSource(source,'Гемблінг'),source);assert.equal(safeSource(source,'API'),null);}
  for(const source of ['https://www.gov.br/saude/pt-br/news','https://www.gov.br/fazenda/pt-br/../../secret','https://www.gov.br/fazenda/pt-br/%2e%2e/secret','https://www.gov.br/fazenda/pt-br.evil/secret'])assert.equal(safeSource(source,'Гемблінг'),null,source);
 });
@@ -136,4 +136,8 @@ test('original research is not labeled Google-confirmed without a real Google re
  const research={...row(1),source:'https://www.apptweak.com/en/aso-blog/research',status:'Підтверджено Google'};
  assert.throws(()=>parseFeed([research]));
  assert.equal(parseFeed([{...research,sources:[{label:'Google',url:'https://developer.android.com/blog/posts/news'}]}]).length,1);
+});
+
+test("rejects retired and out-of-scope sources",()=>{
+ for(const url of ['https://github.com/other/bundletool/releases/tag/1.0', 'https://github.com/google/bundletool/issues/1', 'https://appfigures.com/account', 'https://kansspelautoriteit.nl/nieuws/rules'])assert.equal(safeSource(url,"Гемблінг",true),null,url);
 });

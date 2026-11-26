@@ -1,6 +1,6 @@
 # Джерела новин Play Pulse
 
-Каталог доповнює чинну базу джерел для пошуку о 10:00 `Europe/Kyiv`. Усі 16 додаткових джерел і тематичних стрічок збережено в наявному хмарному завданні 24.11.2026. Інструкція кожного запуску міститься в [news-monitor-prompt.md](news-monitor-prompt.md), параметри завдання в [news-monitor.json](news-monitor.json).
+Каталог доповнює чинну базу джерел для пошуку о 10:00 `Europe/Kyiv`. 26.11.2026 пріоритет надано міжнародним змінам для Android-видавців. Однодержавні новини про правила магазинів і гемблінг та матеріали про Нідерланди виключено з пошуку. Інструкція кожного запуску міститься в [news-monitor-prompt.md](news-monitor-prompt.md), параметри завдання в [news-monitor.json](news-monitor.json).
 
 Відбирай матеріали, що впливають на публікацію Android-застосунків, правила Google Play, монетизацію, ASO та Android-гемблінг. Зберігай рубрики «Політики», «Публікація», «Монетизація», «Ігри», «Магазин», «API», «Гемблінг». Новини про характеристики пристроїв, партнерські пропозиції й реклама до стрічки не входять.
 
@@ -15,15 +15,19 @@
 | [Android Weekly](https://androidweekly.net/) | Добірки новин та інструментів Android | Пошук тем і додатковий контекст; переходь до першоджерела кожної події |
 | [9to5Google: Google Play Store](https://9to5google.com/guides/google-play-store/) | Функції магазину, оновлення й помітні проблеми | Пошук тем і додаткові посилання після перевірки офіційного підтвердження |
 | [Android Authority: Google Play Store](https://www.androidauthority.com/tag/google-play-store/) | Зміни Google Play, дослідження застосунків і тести функцій | Пошук тем і додатковий контекст; результати тестів не підтверджують загальний запуск |
-| [Kansspelautoriteit, Нідерланди](https://kansspelautoriteit.nl/nieuws) | Гемблінг-реклама, ліцензії, нелегальні застосунки | Офіційне першоджерело регулятора для Нідерландів |
-| [UK Gambling Commission](https://www.gamblingcommission.gov.uk/news) | Онлайн-гемблінг, вимоги до операторів, рішення й консультації | Офіційне першоджерело регулятора; зазначай територію дії конкретного документа |
-| [Malta Gaming Authority](https://www.mga.org.mt/category/news/) | Правила, ліцензії, неавторизовані сервіси | Офіційне першоджерело регулятора Мальти |
-| [SPA, Міністерство фінансів Бразилії](https://www.gov.br/fazenda/pt-br/composicao/orgaos/secretaria-de-premios-e-apostas/apostas-de-quota-fixa/legislacao) | Нормативні акти й технічні роз’яснення щодо ставок | Офіційне першоджерело для Бразилії |
 | [Android Developers на YouTube](https://www.youtube.com/@AndroidDevelopers) | Презентації, PolicyBytes, пояснення можливостей Google Play | Пошук тем і додаткові відеопосилання; основним посиланням новини має бути відповідний офіційний матеріал Google |
 | [GApps Leaks у Telegram](https://t.me/s/GappsLeaks) | Знахідки в застосунках Google, зображення й тестові функції | Пошук тем і додаткові посилання після офіційного підтвердження; витік або APK teardown сам по собі не є підставою для публікації |
 | [Traffnews у Telegram](https://t.me/s/traffnews) | Рекламні платформи, affiliate та iGaming | Перевірені повідомлення для «Гемблінгу» зі статусом «Повідомлення каналу»; рекламні матеріали й партнерські пропозиції пропускай |
+| [Google AdMob](https://developers.google.com/admob/android/next-gen/rel-notes) та [Legacy SDK](https://developers.google.com/admob/android/rel-notes) | Мобільна реклама | Журнал конкретного SDK |
+| [Google bundletool](https://github.com/google/bundletool/releases) | Android App Bundle | Опис конкретного релізу Google |
+| [RevenueCat Android](https://github.com/RevenueCat/purchases-android/releases) | Покупки та підписки | Реліз власного SDK |
+| [Samsung Developer News](https://developer.samsung.com/sdp/news/en) | Дистрибуція в Galaxy Store | Оголошення Samsung |
+| [Appfigures Insights](https://appfigures.com/resources/insights) | Показники ринку Android | Власні оцінки з указаним періодом |
+| [Єврокомісія, DMA](https://digital-markets-act.ec.europa.eu/latest-news_en) | Правила ринку ЄС | Офіційні матеріали із точним статусом справи |
+| [AndroidDevEU](https://t.me/s/AndroidDevEU) | Новини спільноти | Пошук тем і конкретні дописи як додаткові джерела |
+| [Android Developer Podcasts](https://developer.android.com/podcasts) | Випуски Now in Android і Backstage | Пошук тем, офіційні матеріали й відео випусків |
 
-Попередня база зберігається: Google Play Blog, Android Developers Blog, оголошення й строки політик Play Console, Google Play Business, сторінка стану Google Play, release notes Play Billing, Play Integrity, Play Age Signals, Play Games і Android developer verification. Для гемблінгу залишаються DIA Нової Зеландії, законодавство Австралії, Конгрес Бразилії та PlayCity України.
+Попередня база зберігається: Google Play Blog, Android Developers Blog, оголошення й строки політик Play Console, Google Play Business, сторінка стану Google Play, release notes Play Billing, Play Integrity, Play Age Signals, Play Games і Android developer verification. Національні регулятори доступні як джерела історичних матеріалів; нові локальні рішення пропускай.
 
 Раніше дозволені публічні Telegram-канали: [Traffic Arts](https://t.me/s/trafficarts), [UAFF](https://t.me/s/uaff_media), [Affhub](https://t.me/s/affhubmedia), [iGaming News](https://t.me/s/igaming_news), [PlayCity](https://t.me/s/playcityukr), [Android Broadcast](https://t.me/s/android_broadcast). Для джерел у новинах використовуй прямі посилання на конкретні дописи. Адреси каналів у каталозі призначені для пошуку.
 

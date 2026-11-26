@@ -5,9 +5,15 @@ const MAX_BODY = 128 * 1024;
 const MAX_RECORDS = 1500;
 const CATEGORIES = new Set(["Політики","Публікація","Монетизація","Ігри","Магазин","API","Гемблінг"]);
 const GOOGLE_HOSTS = new Set(["blog.google","developer.android.com","android-developers.googleblog.com","android.com","www.android.com","support.google.com","developers.google.com","google.play","play.google.com","status.play.google.com","firebase.google.com","firebase.blog","source.android.com"]);
-const REGULATORS = new Set(["www.gamblingcommission.gov.uk","kansspelautoriteit.nl","www.mga.org.mt","www.gov.br"]);
+const REGULATORS = new Set(["www.gamblingcommission.gov.uk","www.mga.org.mt","www.gov.br"]);
 const EDITORIAL_HOSTS = new Set(["9to5google.com","www.androidauthority.com","androidweekly.net"]);
-const HOSTS = new Set([...GOOGLE_HOSTS,...REGULATORS,...EDITORIAL_HOSTS,"www.apptweak.com","www.dia.govt.nz","www.legislation.gov.au","www.congressonacional.leg.br","playcity.gov.ua","www.youtube.com","youtube.com"]);
+// Only publisher-owned release and research pages on these platforms.
+const publisherPaths = new Map([
+  ['github.com', /^\/(?:google\/bundletool|RevenueCat\/purchases-android)\/releases\/tag\/[\w.-]+$/],
+  ['developer.samsung.com', /^\/sdp\/news\/en\/\d{4}\/\d{2}\/\d{2}\/[\w-]+\/?$/],
+  ['appfigures.com', /^\/resources\/insights\/.+/]
+]);
+const HOSTS = new Set([...GOOGLE_HOSTS,...REGULATORS,...EDITORIAL_HOSTS,...publisherPaths.keys(),"digital-markets-act.ec.europa.eu","www.apptweak.com","www.dia.govt.nz","www.legislation.gov.au","www.congressonacional.leg.br","playcity.gov.ua","www.youtube.com","youtube.com"]);
 const TELEGRAM_HANDLES = new Set(["trafficarts","uaff_media","affhubmedia","igaming_news","playcityukr","android_broadcast","traffnews"]);
 const VIDEO_RE = /^https:\/\/(?:www\.)?youtube\.com\/(?:@AndroidDevelopers|watch\?v=[A-Za-z0-9_-]{11})$/;
 const encode = value => JSON.stringify(value);
@@ -28,11 +34,13 @@ const sourceURL = (value,category,supporting=false) => {
     // Raw validation rejects normalized paths, default ports and redirect params.
     const post = /^https:\/\/t\.me\/(s\/)?([a-z0-9_]+)\/([1-9][0-9]*)$/i.exec(raw),handle=post?.[2].toLowerCase();
     const legacy=category==="Гемблінг"&&TELEGRAM_HANDLES.has(handle);
-    const discovery=supporting&&(handle==="android_broadcast"||handle==="gappsleaks"&&category!=="Гемблінг");
+    const discovery=supporting&&(handle==="android_broadcast"||(handle==="gappsleaks"||handle==="androiddeveu")&&category!=="Гемблінг");
     if(!post||!legacy&&!discovery)throw new Error("Use an allowed public Telegram post in its supported source role");
     return "https://t.me/"+(post[1]?"s/":"")+handle+"/"+post[3];
   }
   if (url.protocol !== "https:" || url.username || url.password || url.port || !HOSTS.has(url.hostname)) throw new Error("Use a supported official HTTPS source");
+  const publisherPath = publisherPaths.get(url.hostname);
+  if(publisherPath && !publisherPath.test(url.pathname)) throw new Error("Use a release or article from the selected publisher");
   if(EDITORIAL_HOSTS.has(url.hostname)&&!supporting)throw new Error("Media can be an additional source only");
   if(["www.youtube.com","youtube.com"].includes(url.hostname)&&(!supporting||!VIDEO_RE.test(raw)))throw new Error("Use an Android Developers channel or video as an additional source only");
   if(REGULATORS.has(url.hostname)&&(category!=="Гемблінг"||url.hostname==="www.gov.br"&&!url.pathname.startsWith("/fazenda/pt-br/")))throw new Error("Use a gambling regulator's public source");
@@ -42,7 +50,7 @@ const sourceURL = (value,category,supporting=false) => {
 };
 const discoverySource = (raw,category) => {
  const url=new URL(raw);
- return EDITORIAL_HOSTS.has(url.hostname)||["www.youtube.com","youtube.com"].includes(url.hostname)||url.hostname==="t.me"&&(url.pathname.toLowerCase().includes("/gappsleaks/")||category!=="Гемблінг"&&url.pathname.toLowerCase().includes("/android_broadcast/"));
+ return EDITORIAL_HOSTS.has(url.hostname)||["www.youtube.com","youtube.com"].includes(url.hostname)||url.hostname==="t.me"&&(url.pathname.toLowerCase().includes("/gappsleaks/")||url.pathname.toLowerCase().includes("/androiddeveu/")||category!=="Гемблінг"&&url.pathname.toLowerCase().includes("/android_broadcast/"));
 };
 const validDate = date => {
   if (typeof date !== "string" || !/^20\d{2}-(0[1-9]|1[0-2])(?:-(0[1-9]|[12]\d|3[01]))?$/.test(date)) return false;
@@ -101,6 +109,8 @@ async function parseBounded(request) {
   } catch(error) { return {error:400,reason:error.message || "Invalid news entry"}; }
 }
 const sortNews = items => items.sort((a,b)=>b.date.localeCompare(a.date)||a.id.localeCompare(b.id));
+// Retain the stored archive while withdrawing Ksa stories from all readers.
+export const visibleNews = items => items.filter(item => !/^https:\/\/kansspelautoriteit\.nl\//i.test(item.source));
 const merged = (seed,items) => sortNews([...new Map([...seed,...items].map(i=>[i.id,i])).values()]);
 async function readUpdates(bucket) {
   const obj=await bucket.get(UPDATE_KEY);
@@ -133,7 +143,7 @@ async function upsert(request,bucket,url,seed) {
         const written=await bucket.put(UPDATE_KEY,encode(entries),{onlyIf,httpMetadata:{contentType:"application/json"}});
         if(!written) continue;
       }
-      return json({ok:true,ids:accepted.map(x=>x.id),total:merged(seed,entries).length,changed:!unchanged});
+      return json({ok:true,ids:accepted.map(x=>x.id),total:visibleNews(merged(seed,entries)).length,changed:!unchanged});
     }
     return json({ok:false,error:"Concurrent write; retry the same request"},409);
   } catch {return json({ok:false,error:"News storage write failed"},503);}
@@ -389,7 +399,7 @@ export function makeApp(assets,seed) {
       try {if(env.BUCKET) entries=(await readUpdates(env.BUCKET)).entries;}
       catch {headers["x-play-pulse-writable"]="unavailable";}
       if(request.method==="HEAD") return new Response(null,{headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store",...headers}});
-      return json(merged(seed,entries),200,headers);
+      return json(visibleNews(merged(seed,entries)),200,headers);
     }
     const name=path==="/"?"/index.html":path;
     if(Object.hasOwn(assets,name)) return serveAsset(request,assets[name]);

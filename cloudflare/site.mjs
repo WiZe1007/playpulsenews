@@ -1,4 +1,4 @@
-import {makeApp} from '../site/worker/runtime.mjs';
+import {makeApp,visibleNews} from '../site/worker/runtime.mjs';
 import {feedReturnTarget} from '../site/return-target.mjs';
 
 const NEWS_KEY='news/updates-v1.json';
@@ -49,7 +49,7 @@ export async function readFeed(bucket){
       !CATEGORIES.has(item.category)||typeof item.title!=='string'||!item.title.trim()||
       typeof item.summary!=='string'||!item.summary.trim()||typeof item.source!=='string'||!item.source.startsWith('https://'))||
       new Set(items.map(item=>item.id)).size!==items.length)throw Error();
-    return items;
+    return visibleNews(items);
   }catch{throw Error('Приватна стрічка Play Pulse тимчасово недоступна.');}
 }
 

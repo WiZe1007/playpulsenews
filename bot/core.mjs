@@ -4,9 +4,15 @@ export const SITE='https://play-pulse-news.nemofresh.chatgpt.site';
 export const CATEGORIES=['Політики','Публікація','Монетизація','Ігри','Магазин','API','Гемблінг'];
 const RU=['Политики','Публикация','Монетизация','Игры','Магазин','API','Гемблинг'];
 const GOOGLE_HOSTS=new Set(['blog.google','developer.android.com','android-developers.googleblog.com','android.com','www.android.com','support.google.com','developers.google.com','google.play','play.google.com','status.play.google.com','firebase.google.com','firebase.blog','source.android.com']);
-const REGULATORS=new Set(['www.gamblingcommission.gov.uk','kansspelautoriteit.nl','www.mga.org.mt','www.gov.br']);
+const REGULATORS=new Set(['www.gamblingcommission.gov.uk','www.mga.org.mt','www.gov.br']);
 const EDITORIAL_HOSTS=new Set(['9to5google.com','www.androidauthority.com','androidweekly.net']);
-const SAFE_HOSTS=new Set([...GOOGLE_HOSTS,...REGULATORS,...EDITORIAL_HOSTS,'www.apptweak.com','www.dia.govt.nz','www.legislation.gov.au','www.congressonacional.leg.br','playcity.gov.ua','t.me','unity.com','www.youtube.com','youtube.com']);
+// Only publisher-owned release and research pages on these platforms.
+const publisherPaths = new Map([
+  ['github.com', /^\/(?:google\/bundletool|RevenueCat\/purchases-android)\/releases\/tag\/[\w.-]+$/],
+  ['developer.samsung.com', /^\/sdp\/news\/en\/\d{4}\/\d{2}\/\d{2}\/[\w-]+\/?$/],
+  ['appfigures.com', /^\/resources\/insights\/.+/]
+]);
+const SAFE_HOSTS=new Set([...GOOGLE_HOSTS,...REGULATORS,...EDITORIAL_HOSTS,...publisherPaths.keys(),'digital-markets-act.ec.europa.eu','www.apptweak.com','www.dia.govt.nz','www.legislation.gov.au','www.congressonacional.leg.br','playcity.gov.ua','t.me','unity.com','www.youtube.com','youtube.com']);
 const TELEGRAM_CHANNELS=new Set(['trafficarts','uaff_media','affhubmedia','igaming_news','playcityukr','android_broadcast','traffnews']);
 const VIDEO_RE=/^https:\/\/(?:www\.)?youtube\.com\/(?:@AndroidDevelopers|watch\?v=[A-Za-z0-9_-]{11})$/;
 const day=/^20\d\d-(0[1-9]|1[0-2])(?:-(0[1-9]|[12]\d|3[01]))?$/;
@@ -22,9 +28,11 @@ export function safeSource(raw,category,supporting=false) {
     if(u.hostname==='t.me'){
       const post=/^https:\/\/t\.me\/(?:s\/)?([a-z0-9_]+)\/[1-9][0-9]*$/i.exec(raw),handle=post?.[1].toLowerCase();
       const legacy=category==='Гемблінг'&&TELEGRAM_CHANNELS.has(handle);
-      const discovery=supporting&&(handle==='android_broadcast'||handle==='gappsleaks'&&category!=='Гемблінг');
+      const discovery=supporting&&(handle==='android_broadcast'||(handle==='gappsleaks'||handle==='androiddeveu')&&category!=='Гемблінг');
       if(!post||!legacy&&!discovery)return null;
     }
+    const publisherPath = publisherPaths.get(u.hostname);
+    if(publisherPath && !publisherPath.test(u.pathname)) return null;
     if(EDITORIAL_HOSTS.has(u.hostname)&&!supporting)return null;
     if(['www.youtube.com','youtube.com'].includes(u.hostname)&&(!supporting||!VIDEO_RE.test(raw)))return null;
     if(REGULATORS.has(u.hostname)&&(category!=='Гемблінг'||u.hostname==='www.gov.br'&&!u.pathname.startsWith('/fazenda/pt-br/')))return null;
@@ -35,7 +43,7 @@ export function safeSource(raw,category,supporting=false) {
 }
 function discoverySource(raw,category){
   const url=new URL(raw);
-  return EDITORIAL_HOSTS.has(url.hostname)||['www.youtube.com','youtube.com'].includes(url.hostname)||url.hostname==='t.me'&&(url.pathname.toLowerCase().includes('/gappsleaks/')||category!=='Гемблінг'&&url.pathname.toLowerCase().includes('/android_broadcast/'));
+  return EDITORIAL_HOSTS.has(url.hostname)||['www.youtube.com','youtube.com'].includes(url.hostname)||url.hostname==='t.me'&&(url.pathname.toLowerCase().includes('/gappsleaks/')||url.pathname.toLowerCase().includes('/androiddeveu/')||category!=='Гемблінг'&&url.pathname.toLowerCase().includes('/android_broadcast/'));
 }
 const CANONICAL=SITE+'/news.json';
 function httpsURL(raw) {
