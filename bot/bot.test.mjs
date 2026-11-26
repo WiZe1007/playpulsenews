@@ -100,7 +100,7 @@ test('article lookup and selected private cards preserve full content through Te
 });
 
 test('expanded official and original research sources preserve complete articles and source labels',()=>{
- const urls=['https://firebase.google.com/support/release-notes/android','https://firebase.blog/posts/android-update','https://source.android.com/docs/security/bulletin/2026-11-01','https://www.apptweak.com/en/aso-blog/google-play-research','https://github.com/google/bundletool/releases/tag/1.18.3','https://github.com/RevenueCat/purchases-android/releases/tag/11.0.0','https://developer.samsung.com/sdp/news/en/2026/10/28/update','https://digital-markets-act.ec.europa.eu/decision_en','https://appfigures.com/resources/insights/20261125-report'];
+ const urls=['https://firebase.google.com/support/release-notes/android','https://firebase.blog/posts/android-update','https://source.android.com/docs/security/bulletin/2026-11-01','https://www.apptweak.com/en/aso-blog/google-play-research','https://github.com/google/bundletool/releases/tag/1.18.3','https://github.com/RevenueCat/purchases-android/releases/tag/11.0.0','https://developer.samsung.com/sdp/news/en/2026/10/28/update','https://digital-markets-act.ec.europa.eu/decision_en','https://www.adjust.com/blog/tiktok-attribution-source-optimization/','https://appfigures.com/resources/insights/20261125-report'];
  for(const [i,source] of urls.entries()){
   const data={...row(1),id:'expanded-primary-'+i,source,summary:'Повний виклад новини.',detail:'Усі важливі подробиці.',sourceLabel:'Перевірене джерело'};
   const [item]=parseFeed([data]);assert.equal(item.summary,data.summary);assert.equal(item.detail,data.detail);assert.equal(item.links[0].url,source);assert.equal(item.links[0].label,data.sourceLabel);
@@ -139,5 +139,5 @@ test('original research is not labeled Google-confirmed without a real Google re
 });
 
 test("rejects retired and out-of-scope sources",()=>{
- for(const url of ['https://github.com/other/bundletool/releases/tag/1.0', 'https://github.com/google/bundletool/issues/1', 'https://appfigures.com/account', 'https://kansspelautoriteit.nl/nieuws/rules'])assert.equal(safeSource(url,"Гемблінг",true),null,url);
+ for(const url of ['https://github.com/other/bundletool/releases/tag/1.0', 'https://github.com/google/bundletool/issues/1', 'https://www.adjust.com/blog/tiktok-attribution-source-optimization/?redirect=1','https://www.adjust.com/blog/other/','https://appfigures.com/account', 'https://kansspelautoriteit.nl/nieuws/rules'])assert.equal(safeSource(url,"Гемблінг",true),null,url);
 });

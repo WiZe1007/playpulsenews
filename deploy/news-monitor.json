@@ -29,9 +29,9 @@
   "sources_expanded_on": "2026-11-26",
   "cloud_prompt_matches_repository": true,
   "source_policy_deployments": {
-    "sites_version": 12,
-    "sites_source_commit": "36a950fd950fc1f71d7cfc99eb8b83edfffbabf5",
-    "cloudflare_version": "d476e077-b57d-48a5-a2ae-eccbd19bd3d2"
+    "sites_version": 13,
+    "sites_source_commit": "3b6a98f13ec21f3d98b05ee1c5d109a3f4190550",
+    "cloudflare_version": "d7b590bd-dc31-4a5f-b633-500bf10e7ace"
   },
   "prepared_prompt_date": "2026-11-26"
 }

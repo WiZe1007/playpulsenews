@@ -22,6 +22,7 @@ const completeValue=(s,n)=>typeof s==='string'?(s.trim().length<=n?s.trim():null
 export const escapeHTML=s=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export function safeSource(raw,category,supporting=false) {
   if(typeof raw!=='string'||raw.length>1200||!/^https:\/\/[a-z0-9.-]+\//i.test(raw)||/[\s\\]/.test(raw))return null;
+  if(raw==='https://www.adjust.com/blog/tiktok-attribution-source-optimization/')return raw;
   try {
     const u=new URL(raw);
     if(u.protocol!=='https:'||u.username||u.password||u.port||!SAFE_HOSTS.has(u.hostname))return null;

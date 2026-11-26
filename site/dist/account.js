@@ -334,6 +334,7 @@ function telegramPost(raw) {
 }
 function urlAllowed(raw,category,supporting=false) {
  if(typeof raw!=='string'||raw.length>1200||!/^https:\/\/[a-z0-9.-]+\//i.test(raw)||/[\s\\]/.test(raw))return false;
+ if(raw==='https://www.adjust.com/blog/tiktok-attribution-source-optimization/')return true;
  if(category===gamblingCategory && (telegramPost(raw)||raw==='https://unity.com/legal/content-policy'))return true;
  try {
   const url = new URL(raw);

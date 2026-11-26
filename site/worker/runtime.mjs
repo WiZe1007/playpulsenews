@@ -28,6 +28,7 @@ const plain = (value, max, required = true) => {
 const sourceURL = (value,category,supporting=false) => {
   const raw = plain(value, 1200);
   if(!/^https:\/\/[a-z0-9.-]+\//i.test(raw)||/[\s\\]/.test(raw))throw new Error("Use a supported public HTTPS source");
+  if(raw==='https://www.adjust.com/blog/tiktok-attribution-source-optimization/')return raw;
   const url = new URL(raw);
   if(category==="Гемблінг" && raw==="https://unity.com/legal/content-policy") return raw;
   if (url.hostname === "t.me") {
