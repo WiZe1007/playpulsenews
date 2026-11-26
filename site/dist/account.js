@@ -341,7 +341,7 @@ function urlAllowed(raw,category,supporting=false) {
   const url = new URL(raw);
   if(url.hostname==='t.me'){
    const post=/^https:\/\/t\.me\/(?:s\/)?([a-z0-9_]+)\/[1-9][0-9]*$/i.exec(raw),handle=post?.[1].toLowerCase();
-   return Boolean(post&&supporting&&(handle==='android_broadcast'||(handle==='gappsleaks'||handle==='androiddeveu')&&category!==gamblingCategory));
+   return Boolean(post&&supporting&&((handle==='apps4you_rent'&&category==='Практика Play Console')||handle==='android_broadcast'||(handle==='gappsleaks'||handle==='androiddeveu')&&category!==gamblingCategory));
   }
   if(url.protocol!=='https:'||url.username||url.password||url.port||!allowedHosts.has(url.hostname))return false;
   const publisherPath = publisherPaths.get(url.hostname);

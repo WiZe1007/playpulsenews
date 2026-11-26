@@ -152,3 +152,11 @@ test('practice articles open from their category in the Telegram menu',()=>{
   const article=screen(items,list.keyboard[0][0].callback_data);
   assert.ok(article.text.includes(category));
 });
+
+test('the practice column accepts a direct Apps4You case as a supporting link',()=>{
+  const url='https://t.me/apps4you_rent/389';
+  assert.equal(safeSource(url,'Практика Play Console',true),url);
+  assert.equal(safeSource(url,'Практика Play Console'),null);
+  assert.equal(safeSource(url,'Гемблінг',true),null);
+  assert.equal(safeSource(url+'?promo=1','Практика Play Console',true),null);
+});

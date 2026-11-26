@@ -36,7 +36,7 @@ const sourceURL = (value,category,supporting=false) => {
     // Raw validation rejects normalized paths, default ports and redirect params.
     const post = /^https:\/\/t\.me\/(s\/)?([a-z0-9_]+)\/([1-9][0-9]*)$/i.exec(raw),handle=post?.[2].toLowerCase();
     const legacy=category==="Гемблінг"&&TELEGRAM_HANDLES.has(handle);
-    const discovery=supporting&&(handle==="android_broadcast"||(handle==="gappsleaks"||handle==="androiddeveu")&&category!=="Гемблінг");
+    const discovery=supporting&&((handle==="apps4you_rent"&&category==="Практика Play Console")||handle==="android_broadcast"||(handle==="gappsleaks"||handle==="androiddeveu")&&category!=="Гемблінг");
     if(!post||!legacy&&!discovery)throw new Error("Use an allowed public Telegram post in its supported source role");
     return "https://t.me/"+(post[1]?"s/":"")+handle+"/"+post[3];
   }

@@ -30,7 +30,7 @@ export function safeSource(raw,category,supporting=false) {
     if(u.hostname==='t.me'){
       const post=/^https:\/\/t\.me\/(?:s\/)?([a-z0-9_]+)\/[1-9][0-9]*$/i.exec(raw),handle=post?.[1].toLowerCase();
       const legacy=category==='Гемблінг'&&TELEGRAM_CHANNELS.has(handle);
-      const discovery=supporting&&(handle==='android_broadcast'||(handle==='gappsleaks'||handle==='androiddeveu')&&category!=='Гемблінг');
+      const discovery=supporting&&((handle==='apps4you_rent'&&category==='Практика Play Console')||handle==='android_broadcast'||(handle==='gappsleaks'||handle==='androiddeveu')&&category!=='Гемблінг');
       if(!post||!legacy&&!discovery)return null;
     }
     const publisherPath = publisherPaths.get(u.hostname);
