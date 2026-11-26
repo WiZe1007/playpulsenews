@@ -103,9 +103,8 @@ export function channelMediaMessage(payload,media){
  return {method:media.type==='photo'?'sendPhoto':'sendVideo',payload:{[media.type]:media.url,caption:payload.text,parse_mode:'HTML',protect_content:payload.protect_content===true,...(media.type==='video'?{supports_streaming:true}:{})}};
 }
 
-export function editorialChannelPost(payload,url){
+export function editorialChannelPost(payload,url,label){
  if(!url)return null;
- const label='ШІ-ілюстрація WWA';
  const attribution='<i>'+label+'</i>';
  const caption=payload.text+'\n'+attribution;
  const preview={url,prefer_large_media:true,show_above_text:true};

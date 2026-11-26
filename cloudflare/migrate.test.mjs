@@ -44,6 +44,8 @@ test('large imports keep each SQL statement below D1 limits and assemble the com
 
 test('replaying an import never overwrites newer news or sent IDs',async t=>{
   const {db,sqlite}=await createTestD1(t),bucket=createD1Bucket(db);
+  const tableNames=()=>sqlite.prepare("SELECT name FROM sqlite_schema WHERE type='table' ORDER BY name").all().map(row=>row.name);
+  const before=tableNames();
   const sql=buildMigrationSQL({news:[article('old')],notifications:checkpoint});
   sqlite.exec(sql);
   await bucket.put('news/updates-v1.json',JSON.stringify([article('owner-edit')]));
@@ -52,8 +54,7 @@ test('replaying an import never overwrites newer news or sent IDs',async t=>{
   sqlite.exec(sql);
   assert.deepEqual(await (await bucket.get('news/updates-v1.json')).json(),[article('owner-edit')]);
   assert.deepEqual(await (await bucket.get('telegram/notifications-v1.json')).json(),newer);
-  const tables=sqlite.prepare("SELECT name FROM sqlite_schema WHERE type='table'").all().map(row=>row.name);
-  assert.deepEqual(tables,['objects']);
+  assert.deepEqual(tableNames(),before);
 });
 
 test('invalid news or checkpoint data is refused without exposing private content',()=>{

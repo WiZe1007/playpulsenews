@@ -1,7 +1,7 @@
 import {makeApp,visibleNews} from '../site/worker/runtime.mjs';
 import {feedReturnTarget} from '../site/return-target.mjs';
 
-import {editorialAssetPaths} from './editorial-media.mjs';
+import {editorialAssetPaths,serveCover} from './editorial-media.mjs';
 
 const NEWS_KEY='news/updates-v1.json';
 const PUBLIC_ASSETS=new Set(['/account.html','/account.css','/account.js','/mark.svg','/assets/scene-5.webp',...editorialAssetPaths]);
@@ -70,6 +70,7 @@ export function createCloudflareSite({env,bucket,origin}){
       if(incoming.origin!==cfg.origin)return deny(403);
       const url=new URL(cfg.origin);url.pathname=incoming.pathname;url.search=incoming.search;
       const path=url.pathname,readOnly=['GET','HEAD'].includes(request.method),headers=cleanHeaders(request.headers);
+      if(path.startsWith('/covers/'))return await serveCover(path,request.method,env.DB);
       if(path==='/healthz')return readOnly?new Response(request.method==='HEAD'?null:'{"ok":true}',{headers:{'content-type':'application/json','cache-control':'no-store'}}):deny(405);
       if(path==='/api/runtime')return request.method==='GET'?json({platform:'cloudflare'}):deny(405);
       if(path==='/api/news'){

@@ -8,6 +8,7 @@
   ],
   "workers_dev": true,
   "preview_urls": false,
+  "ai": {"binding": "AI", "remote": true},
   "durable_objects": {
     "bindings": [{"name": "AUTH", "class_name": "PlayPulseAuth"}, {"name": "BOT", "class_name": "PlayPulseBot"}]
   },
