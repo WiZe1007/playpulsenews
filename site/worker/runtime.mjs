@@ -9,8 +9,9 @@ const REGULATORS = new Set(["www.gamblingcommission.gov.uk","www.mga.org.mt","ww
 const EDITORIAL_HOSTS = new Set(["9to5google.com","www.androidauthority.com","androidweekly.net"]);
 // Only publisher-owned release and research pages on these platforms.
 const publisherPaths = new Map([
-  ['github.com', /^\/(?:google\/bundletool|RevenueCat\/purchases-android)\/releases\/tag\/[\w.-]+$/],
-  ['developer.samsung.com', /^\/sdp\/news\/en\/\d{4}\/\d{2}\/\d{2}\/[\w-]+\/?$/],
+  ['github.com', /^\/(?:google\/bundletool|RevenueCat\/purchases-android|mjmirza\/app-store-compliance)\/releases\/tag\/[\w.-]+$/],
+  ['androidstudio.googleblog.com', /^\/20\d{2}\/\d{2}\/android-studio-[\w-]+\.html$/],
+  ['blog.jetbrains.com', /^\/kotlin\/2026\/11\/kotlin-benchmark-2-0-how-ai-coding-agents-handle-harder-tasks-and-closed-source-code\/$/],
   ['appfigures.com', /^\/resources\/insights\/.+/]
 ]);
 const HOSTS = new Set([...GOOGLE_HOSTS,...REGULATORS,...EDITORIAL_HOSTS,...publisherPaths.keys(),"digital-markets-act.ec.europa.eu","www.apptweak.com","www.dia.govt.nz","www.legislation.gov.au","www.congressonacional.leg.br","playcity.gov.ua","www.youtube.com","youtube.com"]);
@@ -110,8 +111,8 @@ async function parseBounded(request) {
   } catch(error) { return {error:400,reason:error.message || "Invalid news entry"}; }
 }
 const sortNews = items => items.sort((a,b)=>b.date.localeCompare(a.date)||a.id.localeCompare(b.id));
-// Retain the stored archive while withdrawing Ksa stories from all readers.
-export const visibleNews = items => items.filter(item => !/^https:\/\/kansspelautoriteit\.nl\//i.test(item.source));
+// Retain the stored archive while withdrawing out-of-scope stories from all readers.
+export const visibleNews = items => items.filter(item => !/^https:\/\/(?:kansspelautoriteit\.nl|developer\.samsung\.com)\//i.test(item.source));
 const merged = (seed,items) => sortNews([...new Map([...seed,...items].map(i=>[i.id,i])).values()]);
 async function readUpdates(bucket) {
   const obj=await bucket.get(UPDATE_KEY);

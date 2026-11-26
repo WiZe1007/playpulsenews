@@ -25,13 +25,13 @@
   "prompt_updated_on": "2026-11-26",
   "legacy_chat_digest": "active; private ChatGPT summary only; site writes disabled",
   "sources_file": "deploy/news-sources.md",
-  "additional_source_targets": 33,
+  "additional_source_targets": 32,
   "sources_expanded_on": "2026-11-26",
   "cloud_prompt_matches_repository": true,
   "source_policy_deployments": {
-    "sites_version": 13,
-    "sites_source_commit": "3b6a98f13ec21f3d98b05ee1c5d109a3f4190550",
-    "cloudflare_version": "d7b590bd-dc31-4a5f-b633-500bf10e7ace"
+    "sites_version": 14,
+    "sites_source_commit": "e254f447343bcc83e56ffcbe185312d51963de10",
+    "cloudflare_version": "753be182-77dc-4ed0-897a-8c3798ce07d3"
   },
   "prepared_prompt_date": "2026-11-26"
 }

@@ -15,8 +15,9 @@ const regulatorHosts = new Set(['www.gamblingcommission.gov.uk','www.mga.org.mt'
 const editorialHosts = new Set(['9to5google.com','www.androidauthority.com','androidweekly.net']);
 // Only publisher-owned release and research pages on these platforms.
 const publisherPaths = new Map([
-  ['github.com', /^\/(?:google\/bundletool|RevenueCat\/purchases-android)\/releases\/tag\/[\w.-]+$/],
-  ['developer.samsung.com', /^\/sdp\/news\/en\/\d{4}\/\d{2}\/\d{2}\/[\w-]+\/?$/],
+  ['github.com', /^\/(?:google\/bundletool|RevenueCat\/purchases-android|mjmirza\/app-store-compliance)\/releases\/tag\/[\w.-]+$/],
+  ['androidstudio.googleblog.com', /^\/20\d{2}\/\d{2}\/android-studio-[\w-]+\.html$/],
+  ['blog.jetbrains.com', /^\/kotlin\/2026\/11\/kotlin-benchmark-2-0-how-ai-coding-agents-handle-harder-tasks-and-closed-source-code\/$/],
   ['appfigures.com', /^\/resources\/insights\/.+/]
 ]);
 const allowedHosts = new Set([...googleHosts,...regulatorHosts,...editorialHosts,...publisherPaths.keys(),'digital-markets-act.ec.europa.eu','www.apptweak.com','www.dia.govt.nz','www.legislation.gov.au','www.congressonacional.leg.br','playcity.gov.ua','www.youtube.com','youtube.com']);

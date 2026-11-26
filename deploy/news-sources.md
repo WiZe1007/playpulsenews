@@ -2,7 +2,7 @@
 
 Каталог доповнює чинну базу джерел для пошуку о 10:00 `Europe/Kyiv`. 26.11.2026 пріоритет надано міжнародним змінам для Android-видавців. Однодержавні новини про правила магазинів і гемблінг та матеріали про Нідерланди виключено з пошуку. Інструкція кожного запуску міститься в [news-monitor-prompt.md](news-monitor-prompt.md), параметри завдання в [news-monitor.json](news-monitor.json).
 
-Відбирай матеріали, що впливають на публікацію Android-застосунків, правила Google Play, монетизацію, ASO та Android-гемблінг. Зберігай рубрики «Політики», «Публікація», «Монетизація», «Ігри», «Магазин», «API», «Гемблінг». Новини про характеристики пристроїв, партнерські пропозиції й реклама до стрічки не входять.
+Відбирай матеріали, що впливають на публікацію Android-застосунків, правила Google Play, монетизацію, ASO та Android-гемблінг. Зберігай рубрики «Політики», «Публікація», «Монетизація», «Ігри», «Магазин», «API», «Гемблінг». Матеріали про Samsung, Galaxy Store, Samsung Health і характеристики пристроїв, партнерські пропозиції й реклама до стрічки не входять.
 
 | Джерело | Тема | Роль під час підготовки новини |
 |---|---|---|
@@ -21,7 +21,6 @@
 | [Google AdMob](https://developers.google.com/admob/android/next-gen/rel-notes) та [Legacy SDK](https://developers.google.com/admob/android/rel-notes) | Мобільна реклама | Журнал конкретного SDK |
 | [Google bundletool](https://github.com/google/bundletool/releases) | Android App Bundle | Опис конкретного релізу Google |
 | [RevenueCat Android](https://github.com/RevenueCat/purchases-android/releases) | Покупки та підписки | Реліз власного SDK |
-| [Samsung Developer News](https://developer.samsung.com/sdp/news/en) | Дистрибуція в Galaxy Store | Оголошення Samsung |
 | [Appfigures Insights](https://appfigures.com/resources/insights) | Показники ринку Android | Власні оцінки з указаним періодом |
 | [Єврокомісія, DMA](https://digital-markets-act.ec.europa.eu/latest-news_en) | Правила ринку ЄС | Офіційні матеріали із точним статусом справи |
 | [AndroidDevEU](https://t.me/s/AndroidDevEU) | Новини спільноти | Пошук тем і конкретні дописи як додаткові джерела |
