@@ -26,6 +26,11 @@
 | [Єврокомісія, DMA](https://digital-markets-act.ec.europa.eu/latest-news_en) | Правила ринку ЄС | Офіційні матеріали із точним статусом справи |
 | [AndroidDevEU](https://t.me/s/AndroidDevEU) | Новини спільноти | Пошук тем і конкретні дописи як додаткові джерела |
 | [Android Developer Podcasts](https://developer.android.com/podcasts) | Випуски Now in Android і Backstage | Пошук тем, офіційні матеріали й відео випусків |
+| [App2App](https://t.me/s/app2rb) | Рекламні мережі й аналітика мобільних застосунків | Пошук тем, перевірка за повідомленням платформи |
+| [Gambla4](https://t.me/s/gamblnews) | Європейські й міжнародні рішення щодо реклами онлайн-гемблінгу | Пошук тем із конкретним впливом на Android-видавців |
+| [Гемблинг / iGaming (Партнеркин)](https://t.me/s/thepartnerkin_gambl) | Галузеві дайджести | Перейти до автора дослідження чи рішення |
+| [CPA.RIP](https://t.me/s/cparip) | Мобільна реклама та рекламне шахрайство на Android | Перевірити первинний звіт або анонс платформи |
+| [StartAndroid](https://t.me/s/startandroid) | Android Studio, Gradle, інструменти розробника | Перевірити дату і суттєві зміни в офіційних нотатках до релізу |
 
 Попередня база зберігається: Google Play Blog, Android Developers Blog, оголошення й строки політик Play Console, Google Play Business, сторінка стану Google Play, release notes Play Billing, Play Integrity, Play Age Signals, Play Games і Android developer verification. Національні регулятори доступні як джерела історичних матеріалів; нові локальні рішення пропускай.
 
