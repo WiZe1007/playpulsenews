@@ -1,8 +1,10 @@
 import {makeApp,visibleNews} from '../site/worker/runtime.mjs';
 import {feedReturnTarget} from '../site/return-target.mjs';
 
+import {editorialAssetPaths} from './editorial-media.mjs';
+
 const NEWS_KEY='news/updates-v1.json';
-const PUBLIC_ASSETS=new Set(['/account.html','/account.css','/account.js','/mark.svg','/assets/scene-5.webp']);
+const PUBLIC_ASSETS=new Set(['/account.html','/account.css','/account.js','/mark.svg','/assets/scene-5.webp',...editorialAssetPaths]);
 const ACCOUNT_PATHS=new Set(['/api/account','/api/account/setup','/api/account/login','/api/account/logout','/api/account/password']);
 const PASSWORD_PATHS=new Set(['/api/account/setup','/api/account/login','/api/account/password']);
 const CATEGORIES=new Set(['Політики','Публікація','Монетизація','Ігри','Магазин','API','Гемблінг','Практика Play Console']);

@@ -102,3 +102,18 @@ export function channelMediaMessage(payload,media){
  if(!mediaCaptionFits(payload)||!media||!['photo','video'].includes(media.type)||!(mediaURL(media.url,'google',media.type)||mediaURL(media.url,'telegram',media.type,source(media.sourceUrl)?.kind==='telegram')))return null;
  return {method:media.type==='photo'?'sendPhoto':'sendVideo',payload:{[media.type]:media.url,caption:payload.text,parse_mode:'HTML',protect_content:payload.protect_content===true,...(media.type==='video'?{supports_streaming:true}:{})}};
 }
+
+export function editorialChannelPost(payload,url){
+ if(!url)return null;
+ const label='ШІ-ілюстрація WWA';
+ const attribution='<i>'+label+'</i>';
+ const caption=payload.text+'\n'+attribution;
+ const preview={url,prefer_large_media:true,show_above_text:true};
+ const photo=mediaCaptionFits({text:caption})?{method:'sendPhoto',payload:{photo:url,caption,parse_mode:'HTML',protect_content:payload.protect_content===true}}:null;
+ const linked='<a href="'+url+'">'+label+'</a>';
+ const textLength=decode(payload.text.replace(/<[^>]*>/g,'')).length;
+ const fallback=textLength+label.length+1<=4096
+  ?{...payload,text:payload.text+'\n'+linked,link_preview_options:preview}
+  :{...payload,link_preview_options:preview,reply_markup:{inline_keyboard:[[{text:label,url}]]}};
+ return {photo,fallback};
+}

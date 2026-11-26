@@ -250,3 +250,20 @@ test('confirmed photo delivery resumes only its failed final checkpoint without 
  await assert.rejects(f.deliver({fetchFn,bucket}));assert.equal(f.calls.filter(call=>call.method==='sendPhoto').length,1);assert.equal(reads,1);
  f.advance(61000);const stats=await f.deliver({fetchFn});assert.equal(stats.sentMessages,0);assert.equal(stats.sentArticles,1);assert.equal(reads,1);assert.equal(f.calls.filter(call=>call.method==='sendPhoto').length,1);
 });
+
+test('the hosted channel uses a labelled editorial photo or a large preview without truncation',async t=>{
+ const siteURL='https://private.example';
+ const f=await fixture(t,{settings:{...env,PLAY_PULSE_PUBLIC_ORIGIN:siteURL}});
+ await f.deliver();
+ const long='і'.repeat(1200);
+ f.setFeed([row('old'),row('a',{category:'Політики'}),row('b',{category:'Гемблінг',summary:long})]);
+ const result=await f.deliver();
+ assert.equal(result.sentArticles,2);
+ const photo=f.calls.find(c=>c.method==='sendPhoto')?.args;
+ assert.equal(photo?.photo,siteURL+'/assets/editorial/review.jpg');
+ assert.match(photo.caption,/ШІ-ілюстрація WWA/);
+ const text=f.sent()[0].args;
+ assert.ok(text.text.includes(long));
+ assert.match(text.text,/ШІ-ілюстрація WWA/);
+ assert.deepEqual(text.link_preview_options,{url:siteURL+'/assets/editorial/games.jpg',prefer_large_media:true,show_above_text:true});
+});

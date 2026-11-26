@@ -1,7 +1,8 @@
 import {randomUUID,timingSafeEqual,createHash} from 'node:crypto';
 import {parseFeed,screen,allowedChat,articleForAction} from '../bot/core.mjs';
 import {formatDigest} from '../bot/presentation.mjs';
-import {resolveArticleMedia,channelMediaMessage,mediaCaptionFits} from './media.mjs';
+import {resolveArticleMedia,channelMediaMessage,editorialChannelPost} from './media.mjs';
+import {editorialImageURL} from './editorial-media.mjs';
 
 const CHECKPOINT='telegram/notifications-v1.json';
 const CHANNEL_CHECKPOINT='telegram/channel-notifications-v1.json';
@@ -277,19 +278,23 @@ export async function deliverFreshNews({env,bucket,getFeed,siteURL,fetchFn=fetch
      const progress=await prepareProgress(bucket,progressKey,spec),remaining=chunks.length-progress.nextPart+1;
      if(remaining>3-stats.sentMessages)break;
      for(const chunk of chunks.slice(progress.nextPart-1)){
-      const media=collection==='channels'&&chunks.length===1&&mediaCaptionFits(chunk.payload)?await resolveArticleMedia(item,{fetchFn,signal}):null;
-      const message=channelMediaMessage(chunk.payload,media);
+      const firstChannelPart=collection==='channels'&&chunk.part===1;
+      const media=firstChannelPart?await resolveArticleMedia(item,{fetchFn,signal}):null;
+      const cover=firstChannelPart?editorialChannelPost(chunk.payload,editorialImageURL(item,env.PLAY_PULSE_PUBLIC_ORIGIN)):null;
+      const message=media?channelMediaMessage(chunk.payload,media):cover?.photo;
+      const fallback=cover?.fallback||chunk.payload;
       await renewOwner(bucket,leaseKey,claim,now());
       if(message){
        try{await api(message.method,{...message.payload,chat_id:Number(id)});}
        catch(failure){
-        // Only an explicit rejection proves Telegram did not accept the file.
-        // A network timeout must retain the pending part, never send a second
-        // text version after an attachment may already have been published.
+        // A timeout may mean the attachment was published. Only retry a definitive rejection.
         if(failure?.mediaRejected!==true)throw failure;
-        await api('sendMessage',{...chunk.payload,chat_id:Number(id)});
+        await api('sendMessage',{...fallback,chat_id:Number(id)});
        }
-      }else await api('sendMessage',{...chunk.payload,chat_id:Number(id)});
+      }else{
+       const text=media?{...chunk.payload,link_preview_options:{url:media.sourceUrl,prefer_large_media:true,show_above_text:true}}:fallback;
+       await api('sendMessage',{...text,chat_id:Number(id)});
+      }
       await advanceProgress(bucket,progressKey,spec,chunk.part+1);stats.sentMessages++;
      }
      await changeCheckpoint(bucket,current=>{
