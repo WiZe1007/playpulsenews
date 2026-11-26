@@ -48,8 +48,8 @@ export async function prepareCover(item,{DB,AI,PLAY_PULSE_PUBLIC_ORIGIN:origin},
  async function reserve(bytes,credit){
   const ext=format(bytes);if(!ext)return null;
   const hash=(await digest(bytes)).toString('hex');
-  await DB.prepare('INSERT INTO article_covers(article,digest,format,credit,image) VALUES(?,?,?,?,?) ON CONFLICT DO NOTHING')
-   .bind(item.id,hash,ext,credit,Uint8Array.from(bytes)).run();
+  await DB.prepare('INSERT INTO article_covers(article,digest,format,credit,image) VALUES(?,?,?,?,unhex(?)) ON CONFLICT DO NOTHING')
+   .bind(item.id,hash,ext,credit,bytes.toString('hex')).run();
   const row=await existing();return row?describe(row):null;
  }
  if(media?.type==='photo'){
@@ -77,9 +77,11 @@ export async function serveCover(path,method,db){
  const match=/^\/covers\/([0-9a-f]{64})\.(jpg|png)$/.exec(path);
  if(!match)return new Response(null,{status:404});
  if(method!=='GET'&&method!=='HEAD')return new Response(null,{status:405});
- const field=method==='HEAD'?'length(image) AS size':'image';
+ const field=method==='HEAD'?'length(image) AS size':'hex(image) AS encoded';
  const row=await db.prepare('SELECT '+field+' FROM article_covers WHERE digest=? AND format=?').bind(match[1],match[2]).first();
  if(!row)return new Response(null,{status:404});
- return new Response(method==='HEAD'?null:row.image,{headers:{'content-type':formats[match[2]],
-  'content-length':String(row.size??row.image.byteLength),'cache-control':'public, max-age=31536000, immutable','x-content-type-options':'nosniff'}});
+ // D1 serializes raw BLOBs as JSON byte arrays. Transfer hex strings across the binding instead.
+ const body=method==='HEAD'?null:Buffer.from(row.encoded,'hex');
+ return new Response(body,{headers:{'content-type':formats[match[2]],
+  'content-length':String(row.size??body.byteLength),'cache-control':'public, max-age=31536000, immutable','x-content-type-options':'nosniff'}});
 }
